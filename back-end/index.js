@@ -1,19 +1,20 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+// Import file db để nó chạy lệnh kiểm tra kết nối (đã viết trong db.js)
+require('./config/db'); 
 
 const app = express();
 
 // Middleware
-app.use(cors()); // Cho phép Frontend (port 3000) gọi sang
+app.use(cors()); 
 app.use(express.json());
 
 // Routes
-app.use("/api/auth", require("./routes/auth"));
+app.use('/api/auth', require('./routes/auth'));
 
-// Route test để biết server đang chạy
-app.get("/", (req, res) => {
-  res.send("API Backend đang chạy với MySQL...");
+// Route test trang chủ
+app.get('/', (req, res) => {
+    res.send('API Backend đang chạy với MySQL...');
 });
 
 const PORT = process.env.PORT || 5000;

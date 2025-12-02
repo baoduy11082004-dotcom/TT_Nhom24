@@ -1,11 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AttendanceHistory, type AttendanceRecord } from "@/components/attendance-history"
 import { Calendar, Clock, DollarSign, AlertCircle, CheckCircle2, XCircle, FileText } from "lucide-react"
 
-// Mock data generator for attendance
+// Hàm tạo dữ liệu chấm công giả (Giữ nguyên để hiển thị demo)
 const generateMockAttendance = (year: number, month: number): AttendanceRecord[] => {
   const days = new Date(year, month + 1, 0).getDate()
   const records: AttendanceRecord[] = []
@@ -15,7 +16,6 @@ const generateMockAttendance = (year: number, month: number): AttendanceRecord[]
     const dayOfWeek = date.getDay()
 
     if (dayOfWeek === 0 || dayOfWeek === 6) continue
-
     if (i > 22) continue
 
     const random = Math.random()
@@ -37,12 +37,12 @@ const generateMockAttendance = (year: number, month: number): AttendanceRecord[]
 }
 
 export default function EmployeeDashboard() {
-  // Mock data for the employee
-  const employee = {
-    name: "Nguyễn Văn A",
-    role: "Senior Developer",
+  // 1. Khởi tạo dữ liệu mặc định (Dùng dữ liệu giả cho lương/thống kê)
+  const [employee, setEmployee] = useState({
+    name: "Đang tải...",
+    role: "Nhân viên",
     department: "Engineering",
-    email: "nguyenvana@company.com",
+    email: "loading...",
     phone: "+84 901 234 567",
     location: "Hồ Chí Minh",
     joinDate: "15/03/2022",
@@ -62,8 +62,31 @@ export default function EmployeeDashboard() {
       absent: 1,
       leaveBalance: 10,
     },
-    id: "EMP001",
-  }
+    id: "EMP...",
+  })
+
+  // 2. Dùng useEffect để lấy thông tin người dùng thật từ LocalStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        const userReal = JSON.parse(storedUser)
+        
+        // Cập nhật lại state với thông tin thật
+        setEmployee((prev) => ({
+          ...prev, // Giữ nguyên các thông tin giả (lương, ngày phép...)
+          name: userReal.name || prev.name,
+          email: userReal.email || prev.email,
+          role: userReal.role || prev.role,
+          id: userReal.id || prev.id,
+          // Nếu database có trường team/department thì cập nhật luôn
+          department: userReal.team || userReal.team_id || prev.department
+        }))
+      } catch (e) {
+        console.error("Lỗi đọc dữ liệu user", e)
+      }
+    }
+  }, [])
 
   const attendanceRecords = generateMockAttendance(2025, 10)
 
@@ -75,8 +98,13 @@ export default function EmployeeDashboard() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Xin chào, {employee.name} 👋</h1>
-          <p className="text-gray-600 dark:text-gray-400">Đây là thông tin làm việc và bảng lương của bạn</p>
+          {/* Hiển thị tên thật từ State */}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Xin chào, {employee.name} 👋
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Đây là thông tin làm việc và bảng lương của bạn
+          </p>
         </div>
         <Button onClick={handleLeaveRequest} className="bg-blue-600 hover:bg-blue-700">
           <Calendar className="w-4 h-4 mr-2" />
@@ -101,28 +129,36 @@ export default function EmployeeDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tổng ngày công</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{employee.attendance.totalDays}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {employee.attendance.totalDays}
+                  </p>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
                   <div className="flex items-center justify-center mb-1 gap-1">
                     <CheckCircle2 className="w-3 h-3 text-green-600" />
                     <p className="text-sm text-gray-500 dark:text-gray-400">Đúng giờ</p>
                   </div>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{employee.attendance.present}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {employee.attendance.present}
+                  </p>
                 </div>
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg text-center">
                   <div className="flex items-center justify-center mb-1 gap-1">
                     <AlertCircle className="w-3 h-3 text-yellow-600" />
                     <p className="text-sm text-gray-500 dark:text-gray-400">Đi trễ</p>
                   </div>
-                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{employee.attendance.late}</p>
+                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {employee.attendance.late}
+                  </p>
                 </div>
                 <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-center">
                   <div className="flex items-center justify-center mb-1 gap-1">
                     <XCircle className="w-3 h-3 text-red-600" />
                     <p className="text-sm text-gray-500 dark:text-gray-400">Vắng mặt</p>
                   </div>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{employee.attendance.absent}</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    {employee.attendance.absent}
+                  </p>
                 </div>
               </div>
 
@@ -161,7 +197,9 @@ export default function EmployeeDashboard() {
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
                   <span className="text-gray-600 dark:text-gray-400">Thưởng hiệu suất</span>
-                  <span className="font-medium text-green-600">+{employee.salary.bonus.toLocaleString("vi-VN")} ₫</span>
+                  <span className="font-medium text-green-600">
+                    +{employee.salary.bonus.toLocaleString("vi-VN")} ₫
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
                   <span className="text-gray-600 dark:text-gray-400">Khấu trừ (BHXH, Thuế)</span>
