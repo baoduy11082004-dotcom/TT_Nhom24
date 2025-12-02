@@ -1,15 +1,9 @@
-"use client";
+"use client"
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Calendar,
   User,
@@ -21,7 +15,7 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
-} from "lucide-react";
+} from "lucide-react"
 
 export default function HRDashboard() {
   // Mock data for HR Admin
@@ -35,49 +29,21 @@ export default function HRDashboard() {
     joinDate: "01/01/2020",
     avatar: "/placeholder.svg",
     id: "HR001",
-  };
+  }
 
   const stats = [
-    {
-      title: "Tổng nhân viên",
-      value: "124",
-      icon: Users,
-      color: "text-blue-600",
-      bg: "bg-blue-100",
-    },
-    {
-      title: "Đang làm việc",
-      value: "112",
-      icon: CheckCircle2,
-      color: "text-green-600",
-      bg: "bg-green-100",
-    },
-    {
-      title: "Nghỉ phép",
-      value: "8",
-      icon: Calendar,
-      color: "text-purple-600",
-      bg: "bg-purple-100",
-    },
-    {
-      title: "Đi trễ",
-      value: "4",
-      icon: AlertCircle,
-      color: "text-orange-600",
-      bg: "bg-orange-100",
-    },
-  ];
+    { title: "Tổng nhân viên", value: "124", icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
+    { title: "Đang làm việc", value: "112", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
+    { title: "Nghỉ phép", value: "8", icon: Calendar, color: "text-purple-600", bg: "bg-purple-100" },
+    { title: "Đi trễ", value: "4", icon: AlertCircle, color: "text-orange-600", bg: "bg-orange-100" },
+  ]
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Dashboard Quản Trị
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Tổng quan nhân sự và thông tin cá nhân của bạn
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard Quản Trị</h1>
+          <p className="text-gray-600 dark:text-gray-400">Tổng quan nhân sự và thông tin cá nhân của bạn</p>
         </div>
         <Button>
           <FileText className="w-4 h-4 mr-2" />
@@ -94,12 +60,8 @@ export default function HRDashboard() {
                 <stat.icon className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  {stat.title}
-                </p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {stat.value}
-                </h3>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.title}</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</h3>
               </div>
             </CardContent>
           </Card>
@@ -122,9 +84,7 @@ export default function HRDashboard() {
                 <AvatarFallback>{admin.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <h3 className="text-xl font-semibold">{admin.name}</h3>
-              <Badge className="mt-2 bg-purple-600 hover:bg-purple-700">
-                {admin.role}
-              </Badge>
+              <Badge className="mt-2 bg-purple-600 hover:bg-purple-700">{admin.role}</Badge>
 
               {/* QR Code for HR */}
               <div className="mt-6 p-4 bg-white rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center">
@@ -134,9 +94,7 @@ export default function HRDashboard() {
                   className="w-32 h-32 mb-2"
                 />
                 <p className="text-xs text-gray-500 font-mono">{admin.id}</p>
-                <p className="text-xs text-purple-600 font-medium mt-1">
-                  Mã chấm công
-                </p>
+                <p className="text-xs text-purple-600 font-medium mt-1">Mã chấm công</p>
               </div>
             </div>
 
@@ -177,25 +135,18 @@ export default function HRDashboard() {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Hoạt động gần đây</CardTitle>
-            <CardDescription>
-              Cập nhật mới nhất từ hệ thống nhân sự
-            </CardDescription>
+            <CardDescription>Cập nhật mới nhất từ hệ thống nhân sự</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className="flex items-start space-x-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
-                >
+                <div key={i} className="flex items-start space-x-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                   <div className="w-2 h-2 mt-2 rounded-full bg-blue-500"></div>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       Nguyễn Văn {String.fromCharCode(64 + i)} vừa chấm công vào
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date().toLocaleTimeString()} - Văn phòng Hồ Chí Minh
-                    </p>
+                    <p className="text-xs text-gray-500">{new Date().toLocaleTimeString()} - Văn phòng Hồ Chí Minh</p>
                   </div>
                 </div>
               ))}
@@ -204,5 +155,5 @@ export default function HRDashboard() {
         </Card>
       </div>
     </div>
-  );
+  )
 }

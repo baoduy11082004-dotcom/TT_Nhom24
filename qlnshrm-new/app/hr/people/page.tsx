@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { people, teams, isPersonWorking, getTeamById, type Person } from "@/lib/people"
 import { Search, Users, Grid3X3, List, Filter, Mail, Clock, Moon, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation" // Added router
+import { AddEmployeeDialog } from "@/components/add-employee-dialog"
 
 type ViewMode = "list" | "grid" | "teams"
 
@@ -18,6 +19,7 @@ export default function PeoplePage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [selectedTeam, setSelectedTeam] = useState<string>("all")
+  const [openAddDialog, setOpenAddDialog] = useState(false)
 
   // Filter people based on search query and selected team
   const filteredPeople = people.filter((person) => {
@@ -140,6 +142,13 @@ export default function PeoplePage() {
     </div>
   )
 
+  const handleAddEmployee = (data: any) => {
+    console.log("[v0] New employee data:", data)
+    // Here you would typically send data to an API
+    setOpenAddDialog(false)
+    // Optionally show a success message or refresh the list
+  }
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -162,6 +171,10 @@ export default function PeoplePage() {
         </div>
 
         <div className="flex items-center space-x-2">
+          <Button onClick={() => setOpenAddDialog(true)} className="bg-blue-600 hover:bg-blue-700">
+            + Thêm nhân sự
+          </Button>
+
           {/* Team Filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -247,6 +260,8 @@ export default function PeoplePage() {
           </>
         )}
       </div>
+
+      <AddEmployeeDialog open={openAddDialog} onOpenChange={setOpenAddDialog} onSubmit={handleAddEmployee} />
     </div>
   )
 }
