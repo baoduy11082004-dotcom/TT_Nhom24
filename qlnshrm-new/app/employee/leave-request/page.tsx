@@ -16,138 +16,126 @@ import { cn } from "@/lib/utils"
 export default function LeaveRequestPage() {
   const router = useRouter()
   
-  // 1. Khởi tạo dữ liệu người dùng (Mặc định rỗng)
-  const [user, setUser] = useState({
-    name: "",
-    id: "",
-    email: "",
-    phone: "",
-    team: ""
-  })
-
-  // State cho ngày tháng và lý do
+  // 1. Khởi tạo dữ liệu
+  const [user, setUser] = useState({ name: "", id: "", email: "", phone: "", team: "" })
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
   const [reason, setReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // 2. Lấy dữ liệu thật từ LocalStorage khi vào trang
+  // 2. Lấy dữ liệu user từ LocalStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
     if (storedUser) {
       try {
         const realUser = JSON.parse(storedUser)
+        // Xử lý tên phòng ban
+        const rawTeam = realUser.team_id || realUser.team || "";
+        let displayTeam = "Chưa cập nhật";
+        switch (rawTeam.toLowerCase()) {
+          case 'dev': case 'engineering': displayTeam = "Kỹ thuật (Engineering)"; break;
+          case 'design': case 'ui/ux': displayTeam = "Thiết kế (Design)"; break;
+          case 'qa': case 'tester': displayTeam = "Kiểm thử (QA)"; break;
+          case 'hr': case 'human resources': displayTeam = "Nhân sự (HR)"; break;
+          case 'marketing': displayTeam = "Marketing"; break;
+          default: displayTeam = rawTeam;
+        }
         setUser({
           name: realUser.name || "",
           id: realUser.id || "",
           email: realUser.email || "",
-          // Database chưa có sđt, ta lấy số mặc định hoặc để trống
-          phone: "+84 901 234 567", 
-          // Database lưu 'team' hoặc 'team_id', ta hiển thị cho đẹp
-          team: realUser.team === 'dev' ? 'Phát triển (Dev)' :
-                realUser.team === 'qa' ? 'Kiểm thử (QA)' :
-                realUser.team === 'design' ? 'Thiết kế (Design)' : 
-                realUser.team || "Chưa cập nhật"
+          phone: realUser.phone || "+84 901 234 567", 
+          team: displayTeam
         })
-      } catch (e) {
-        console.error("Lỗi đọc dữ liệu user", e)
-      }
+      } catch (e) { console.error(e) }
     }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  // --- HÀM GỬI ĐƠN (GỌI API THẬT) ---
+  const handleSubmit = async () => {
+    if (!startDate || !endDate || !reason) {
+      alert("Vui lòng điền đầy đủ ngày tháng và lý do!");
+      return;
+    }
+
     setIsSubmitting(true)
-    
-    // Giả lập gửi API
-    setTimeout(() => {
-      alert("Gửi đơn xin nghỉ phép thành công! Đang chờ HR duyệt.")
-      setIsSubmitting(false)
-      router.push("/employee/dashboard")
-    }, 1500)
+
+    try {
+      // GỌI API BACKEND
+      const res = await fetch('http://localhost:5000/api/leave/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          fullName: user.name,
+          team: user.team,
+          startDate: format(startDate, 'yyyy-MM-dd'),
+          endDate: format(endDate, 'yyyy-MM-dd'),
+          reason: reason
+        })
+      });
+
+      if (res.ok) {
+        // NẾU THÀNH CÔNG SẼ HIỆN CÂU NÀY (Để phân biệt với code cũ)
+        alert("✅ Gửi đơn thành công! HR đã nhận được thông báo.");
+        router.push("/employee/dashboard");
+      } else {
+        const errorData = await res.json();
+        alert("❌ Lỗi: " + (errorData.msg || "Server lỗi"));
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("⚠️ Lỗi kết nối Server Backend! Kiểm tra xem cửa sổ đen có chạy không.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <div className="container max-w-3xl py-6 mx-auto">
-      <Button 
-        variant="ghost" 
-        className="mb-4 pl-0 hover:bg-transparent hover:text-blue-600" 
-        onClick={() => router.back()}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Quay lại Dashboard
+      <Button variant="ghost" className="mb-4 pl-0" onClick={() => router.back()}>
+        <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại Dashboard
       </Button>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Đơn Xin Nghỉ Phép</CardTitle>
-          <CardDescription>
-            Vui lòng điền đầy đủ thông tin bên dưới để gửi yêu cầu đến phòng nhân sự.
-          </CardDescription>
+          <CardTitle>Đơn Xin Nghỉ Phép</CardTitle>
+          <CardDescription>Điền thông tin gửi phòng nhân sự.</CardDescription>
         </CardHeader>
         
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
-            
-            {/* HÀNG 1: HỌ TÊN & MÃ NV (Tự động điền & Khóa) */}
+        {/* Dùng div thay form để tránh lỗi submit */}
+        <div className="space-y-6 p-6 pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Họ và tên</Label>
-                <Input 
-                  id="fullName" 
-                  value={user.name} 
-                  readOnly 
-                  className="bg-gray-100 cursor-not-allowed font-medium" 
-                />
+                <Label>Họ và tên</Label>
+                <Input value={user.name} readOnly className="bg-gray-100" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="employeeId">Mã nhân viên</Label>
-                <Input 
-                  id="employeeId" 
-                  value={user.id} 
-                  readOnly 
-                  className="bg-gray-100 cursor-not-allowed font-medium" 
-                />
+                <Label>Mã nhân viên</Label>
+                <Input value={user.id} readOnly className="bg-gray-100" />
               </div>
             </div>
 
-            {/* HÀNG 2: SĐT & PHÒNG BAN */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">Số điện thoại</Label>
-                <Input 
-                  id="phone" 
-                  value={user.phone} 
-                  onChange={(e) => setUser({...user, phone: e.target.value})}
-                  placeholder="Nhập số điện thoại liên hệ" 
-                />
+                <Label>Số điện thoại</Label>
+                <Input value={user.phone} onChange={(e) => setUser({...user, phone: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="department">Phòng ban</Label>
-                <Input 
-                  id="department" 
-                  value={user.team} 
-                  readOnly 
-                  className="bg-gray-100 cursor-not-allowed" 
-                />
+                <Label>Phòng ban</Label>
+                <Input value={user.team} readOnly className="bg-gray-100" />
               </div>
             </div>
 
-            {/* HÀNG 3: CHỌN NGÀY */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2 flex flex-col">
                 <Label>Từ ngày</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !startDate && "text-muted-foreground"
-                      )}
-                    >
+                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "dd/MM/yyyy") : <span>Chọn ngày bắt đầu</span>}
+                      {startDate ? format(startDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -155,20 +143,13 @@ export default function LeaveRequestPage() {
                   </PopoverContent>
                 </Popover>
               </div>
-
               <div className="space-y-2 flex flex-col">
                 <Label>Đến ngày</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !endDate && "text-muted-foreground"
-                      )}
-                    >
+                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !endDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, "dd/MM/yyyy") : <span>Chọn ngày kết thúc</span>}
+                      {endDate ? format(endDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -178,34 +159,19 @@ export default function LeaveRequestPage() {
               </div>
             </div>
 
-            {/* HÀNG 4: LÝ DO */}
             <div className="space-y-2">
-              <Label htmlFor="reason">Lý do nghỉ phép</Label>
-              <Textarea
-                id="reason"
-                placeholder="Vui lòng ghi rõ lý do nghỉ phép..."
-                className="min-h-[100px]"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                required
-              />
+              <Label>Lý do</Label>
+              <Textarea placeholder="Ghi rõ lý do..." className="min-h-[100px]" value={reason} onChange={(e) => setReason(e.target.value)} />
             </div>
 
-          </CardContent>
-          
-          <CardFooter className="flex justify-end gap-2">
-            <Button variant="outline" type="button" onClick={() => router.back()}>
-              Hủy bỏ
-            </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
-              {isSubmitting ? "Đang gửi..." : (
-                <>
-                  <Send className="mr-2 h-4 w-4" /> Gửi đến HR
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        </form>
+            <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => router.back()}>Hủy bỏ</Button>
+                {/* NÚT GỬI THẬT */}
+                <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
+                  {isSubmitting ? "Đang gửi..." : <><Send className="mr-2 h-4 w-4" /> Gửi đến HR</>}
+                </Button>
+            </div>
+        </div>
       </Card>
     </div>
   )

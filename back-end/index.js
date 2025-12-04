@@ -9,8 +9,14 @@ const app = express();
 app.use(cors()); 
 app.use(express.json());
 
-// Routes
+// --- CÁC ROUTE API ---
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/projects', require('./routes/projects'));
+
+// 👇 DÒNG QUAN TRỌNG BẠN ĐANG THIẾU 👇
+// Dòng này giúp Server hiểu đường dẫn http://localhost:5000/api/leave/...
+app.use('/api/leave', require('./routes/leave')); 
+
 
 // Route test trang chủ
 app.get('/', (req, res) => {
