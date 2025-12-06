@@ -1,12 +1,12 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Camera } from "lucide-react"
 
 interface AddEmployeeDialogProps {
   open: boolean
@@ -15,43 +15,44 @@ interface AddEmployeeDialogProps {
 }
 
 export function AddEmployeeDialog({ open, onOpenChange, onSubmit }: AddEmployeeDialogProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    dob: "",
-    joinDate: "",
-    position: "",
-    location: "",
+    role: "",
+    team_id: "dev", // Mặc định
+    imageURL: ""
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Xử lý chọn ảnh -> Chuyển sang Base64
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) return alert("Ảnh quá lớn (Max 2MB)!");
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, imageURL: reader.result as string }))
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
   const handleSubmit = () => {
+    if(!formData.name || !formData.email) return alert("Vui lòng nhập Tên và Email!");
     onSubmit(formData)
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      dob: "",
-      joinDate: "",
-      position: "",
-      location: "",
-    })
+    handleCancel() // Reset form sau khi gửi
   }
 
   const handleCancel = () => {
     setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      dob: "",
-      joinDate: "",
-      position: "",
-      location: "",
+      name: "", email: "", phone: "", role: "", team_id: "dev", imageURL: ""
     })
     onOpenChange(false)
   }
@@ -63,118 +64,66 @@ export function AddEmployeeDialog({ open, onOpenChange, onSubmit }: AddEmployeeD
           <DialogTitle className="text-gray-900 dark:text-white">Thêm nhân sự mới</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">
-              Họ và tên
-            </Label>
-            <Input
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Nhập họ và tên"
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
+        <div className="space-y-4 py-2">
+          
+          {/* PHẦN CHỌN ẢNH */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              <Avatar className="w-24 h-24 border-2 border-dashed border-gray-300">
+                <AvatarImage src={formData.imageURL} className="object-cover" />
+                <AvatarFallback>IMG</AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+            <p className="text-xs text-gray-500">Chạm để tải ảnh đại diện</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Họ và tên <span className="text-red-500">*</span></Label>
+              <Input name="name" value={formData.name} onChange={handleChange} placeholder="Nguyễn Văn A" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email <span className="text-red-500">*</span></Label>
+              <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="email@company.com" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Số điện thoại</Label>
+              <Input name="phone" value={formData.phone} onChange={handleChange} placeholder="0909..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Chức vụ</Label>
+              <Input name="role" value={formData.role} onChange={handleChange} placeholder="VD: Developer" />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
-              Email
-            </Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
+            <Label>Phòng ban</Label>
+            <select 
+              name="team_id" 
+              value={formData.team_id} 
               onChange={handleChange}
-              placeholder="Nhập email"
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="dev">Kỹ thuật (Engineering)</option>
+              <option value="design">Thiết kế (Design)</option>
+              <option value="qa">Kiểm thử (QA)</option>
+              <option value="marketing">Marketing</option>
+              <option value="hr">Nhân sự (HR)</option>
+            </select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">
-              Số điện thoại
-            </Label>
-            <Input
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="Nhập số điện thoại"
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="dob" className="text-gray-700 dark:text-gray-300">
-              Ngày sinh
-            </Label>
-            <Input
-              id="dob"
-              name="dob"
-              type="date"
-              value={formData.dob}
-              onChange={handleChange}
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="joinDate" className="text-gray-700 dark:text-gray-300">
-              Ngày vào làm
-            </Label>
-            <Input
-              id="joinDate"
-              name="joinDate"
-              type="date"
-              value={formData.joinDate}
-              onChange={handleChange}
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="position" className="text-gray-700 dark:text-gray-300">
-              Chức vụ
-            </Label>
-            <Input
-              id="position"
-              name="position"
-              value={formData.position}
-              onChange={handleChange}
-              placeholder="Nhập chức vụ"
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="location" className="text-gray-700 dark:text-gray-300">
-              Địa chỉ
-            </Label>
-            <Input
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="Nhập địa chỉ"
-              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
-          </div>
         </div>
 
-        <DialogFooter className="flex gap-2 pt-4">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent"
-          >
-            Hủy
-          </Button>
-          <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700">
-            Xác nhận
-          </Button>
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={handleCancel}>Hủy</Button>
+          <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700">Lưu nhân viên</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

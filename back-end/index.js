@@ -1,22 +1,22 @@
 const express = require('express');
 const cors = require('cors');
-// Import file db để nó chạy lệnh kiểm tra kết nối (đã viết trong db.js)
+// Import file db để nó chạy lệnh kiểm tra kết nối
 require('./config/db'); 
 
 const app = express();
 
 // Middleware
 app.use(cors()); 
-app.use(express.json());
+
+// --- QUAN TRỌNG: Tăng giới hạn dung lượng gửi lên (để upload được ảnh) ---
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- CÁC ROUTE API ---
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
-
-// 👇 DÒNG QUAN TRỌNG BẠN ĐANG THIẾU 👇
-// Dòng này giúp Server hiểu đường dẫn http://localhost:5000/api/leave/...
 app.use('/api/leave', require('./routes/leave')); 
-
+app.use('/api/user', require('./routes/user'));
 
 // Route test trang chủ
 app.get('/', (req, res) => {

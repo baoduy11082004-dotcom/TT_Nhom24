@@ -1,14 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  AttendanceHistory,
-  type AttendanceRecord,
-} from "@/components/attendance-history";
+import { AttendanceHistory, type AttendanceRecord } from "@/components/attendance-history";
 import {
   ArrowLeft,
   Mail,
@@ -17,9 +15,10 @@ import {
   Calendar,
   Briefcase,
   FileDown,
+  Trash2,
+  Edit,
+  User as UserIcon
 } from "lucide-react";
-import { people } from "@/lib/people";
-import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,129 +29,111 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
 
-// Mock data generator for a specific user
-const generateMockAttendance = (
-  year: number,
-  month: number
-): AttendanceRecord[] => {
-  const days = new Date(year, month + 1, 0).getDate();
-  const records: AttendanceRecord[] = [];
-
-  for (let i = 1; i <= days; i++) {
-    const date = new Date(year, month, i);
-    const dayOfWeek = date.getDay();
-
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip generating for weekends (handled by component)
-
-    if (i > 20) continue; // Simulate future days
-
-    const random = Math.random();
-    let status: "on-time" | "late" | "absent" = "on-time";
-    let checkIn = "08:00";
-
-    if (random > 0.8) {
-      status = "late";
-      checkIn = "08:45";
-    } else if (random > 0.95) {
-      status = "absent";
-      checkIn = "";
-    }
-
-    records.push({
-      date,
-      status,
-      checkIn: status === "absent" ? undefined : checkIn,
-      checkOut: status === "absent" ? undefined : "17:30",
-    });
-  }
-  return records;
-};
+// 1. Định nghĩa kiểu dữ liệu User trả về từ API
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  team_id: string;
+  image_url: string;
+  bio: string;
+  // Các trường này chưa có trong DB, tạm thời để optional
+  dob?: string;
+  join_date?: string;
+  address?: string;
+}
 
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
   const personId = params.id as string;
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState<any>(null);
 
-  const handleExportReport = () => {
-    // Generate mock CSV content
-    const headers = ["Ngày", "Trạng thái", "Giờ vào", "Giờ ra"];
-    const rows = attendanceRecords.map((record) => [
-      record.date.toLocaleDateString("vi-VN"),
-      record.status === "on-time"
-        ? "Đúng giờ"
-        : record.status === "late"
-        ? "Đi trễ"
-        : "Vắng",
-      record.checkIn || "-",
-      record.checkOut || "-",
-    ]);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.join(",")),
-    ].join("\n");
+  // 2. Lấy dữ liệu nhân viên từ API
+  useEffect(() => {
+    const fetchUserDetail = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/user/profile/${personId}?_t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+        } else {
+          console.error("Không tìm thấy nhân viên");
+        }
+      } catch (error) {
+        console.error("Lỗi kết nối:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
+    if (personId) {
+      fetchUserDetail();
+      // Tạo dữ liệu chấm công giả lập (vì chưa có API chấm công thật)
+      setAttendanceRecords(generateMockAttendance(2025, 10)); 
+    }
+  }, [personId]);
 
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `bao_cao_cham_cong_${extendedPerson.name.replace(
-        /\s+/g,
-        "_"
-      )}_11_2025.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Hàm tạo dữ liệu chấm công giả (Giữ nguyên logic cũ để hiển thị UI)
+  // Hàm tạo dữ liệu chấm công giả (Đã bỏ giới hạn ngày 20)
+  // Hàm tạo dữ liệu chấm công giả (Full tháng, bao gồm T7, CN)
+  const generateMockAttendance = (year: number, month: number): AttendanceRecord[] => {
+    // Lấy tổng số ngày trong tháng (tháng 10 là 31 ngày, tháng 1 là 28 ngày...)
+    const days = new Date(year, month + 1, 0).getDate();
+    const records: AttendanceRecord[] = [];
+    
+    for (let i = 1; i <= days; i++) {
+      const date = new Date(year, month, i);
+      const dayOfWeek = date.getDay();
+      
+      // Mặc định trạng thái
+      let status: "on-time" | "late" | "absent" | "leave" | "weekend" = "on-time";
+      let checkIn: string | undefined = "08:00";
+
+      // Nếu là Chủ Nhật (0) hoặc Thứ 7 (6) -> Đánh dấu là cuối tuần
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        status = "weekend";
+        checkIn = "--"; 
+      } else {
+        // Random dữ liệu cho ngày thường
+        const random = Math.random();
+        if (random > 0.85) { status = "late"; checkIn = "08:45"; } 
+        else if (random > 0.95) { status = "absent"; checkIn = ""; }
+      }
+
+      records.push({
+        date,
+        status: status as any,
+        checkIn: status === "absent" ? undefined : checkIn,
+      });
+    }
+    return records;
+  };
+  // Helper: Mapping tên phòng ban
+  const getTeamName = (teamId: string = "") => {
+    const map: Record<string, string> = {
+      'hr': 'Human Resources',
+      'dev': 'Engineering',
+      'design': 'Design',
+      'qa': 'Quality Assurance',
+      'marketing': 'Marketing'
+    };
+    return map[teamId.toLowerCase()] || teamId.toUpperCase();
   };
 
-  const handleDeleteEmployee = () => {
-    console.log("[v0] Deleting employee:", personId);
-    // Here you would typically call an API to delete
-    router.push("/hr/people");
-  };
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500">Đang tải thông tin nhân viên...</div>;
+  }
 
-  const handleEditEmployee = () => {
-    setIsEditFormOpen(true);
-    setEditFormData(extendedPerson);
-  };
-
-  const handleSaveEdit = (updatedData: any) => {
-    console.log("[v0] Saving employee data:", updatedData);
-    // Here you would typically call an API to update
-    setIsEditFormOpen(false);
-  };
-
-  // Find person from mock data or use placeholder
-  const person = people.find((p) => p.id === personId) || {
-    id: "1",
-    name: "Nguyễn Văn A",
-    role: "Nhân viên",
-    email: "nguyenvana@company.com",
-    imageURL: "/placeholder.svg",
-    team: "engineering",
-    workingHours: { start: "09:00", end: "17:00", timezone: "GMT+7" },
-  };
-
-  // Extended mock data
-  const extendedPerson = {
-    ...person,
-    phone: "0901234567",
-    dob: "15/08/1995",
-    joinDate: "10/03/2022",
-    location: "Hồ Chí Minh",
-  };
-
-  const attendanceRecords = generateMockAttendance(2025, 10); // Nov 2025
+  if (!user) {
+    return <div className="p-6 text-center text-red-500">Không tìm thấy nhân viên này!</div>;
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -165,219 +146,124 @@ export default function EmployeeDetailPage() {
         Quay lại danh sách
       </Button>
 
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Chi tiết nhân viên</h1>
-        <Button
-          onClick={handleExportReport}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <FileDown className="w-4 h-4 mr-2" />
-          Xuất báo cáo tháng
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+        <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Hồ sơ nhân viên</h1>
+            <p className="text-gray-500 text-sm">Quản lý thông tin chi tiết và lịch sử làm việc</p>
+        </div>
+        <Button className="bg-green-600 hover:bg-green-700">
+          <FileDown className="w-4 h-4 mr-2" /> Xuất hồ sơ
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
-        <Card className="lg:col-span-1 h-fit">
-          <CardHeader>
-            <CardTitle>Thông tin nhân viên</CardTitle>
+        <Card className="lg:col-span-1 h-fit shadow-sm">
+          <CardHeader className="pb-0">
+            <CardTitle>Thông tin chung</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="flex flex-col items-center mb-6 text-center">
-              <Avatar className="w-32 h-32 mb-4">
-                <AvatarImage
-                  src={extendedPerson.imageURL || "/placeholder.svg"}
-                />
-                <AvatarFallback>{extendedPerson.name.charAt(0)}</AvatarFallback>
+              <Avatar className="w-32 h-32 mb-4 border-4 border-gray-100">
+                <AvatarImage src={user.image_url || "/placeholder.svg"} className="object-cover" />
+                <AvatarFallback className="text-4xl bg-blue-100 text-blue-600">
+                    {user.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
-              <h2 className="text-2xl font-bold">{extendedPerson.name}</h2>
-              <p className="text-gray-500">{extendedPerson.role}</p>
-              <Badge variant="outline" className="mt-2">
-                {extendedPerson.team}
-              </Badge>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3 text-sm">
-                <Mail className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-gray-500 text-xs">Email</p>
-                  <p className="font-medium">{extendedPerson.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <Phone className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-gray-500 text-xs">Số điện thoại</p>
-                  <p className="font-medium">{extendedPerson.phone}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-gray-500 text-xs">Ngày sinh</p>
-                  <p className="font-medium">{extendedPerson.dob}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <Briefcase className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-gray-500 text-xs">Ngày vào làm</p>
-                  <p className="font-medium">{extendedPerson.joinDate}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <MapPin className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-gray-500 text-xs">Địa chỉ</p>
-                  <p className="font-medium">{extendedPerson.location}</p>
-                </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.name}</h2>
+              <p className="text-gray-500 font-medium">{user.role || "Nhân viên"}</p>
+              
+              <div className="flex gap-2 mt-3">
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none">
+                    {getTeamName(user.team_id)}
+                </Badge>
+                <Badge variant="outline" className="text-gray-500">
+                    {user.id}
+                </Badge>
               </div>
             </div>
 
-            <div className="flex gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                onClick={handleEditEmployee}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-              >
-                Chỉnh sửa
+            <div className="space-y-5 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <div className="flex items-center space-x-3 text-sm">
+                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><Mail className="w-4 h-4 text-gray-600" /></div>
+                <div>
+                  <p className="text-gray-500 text-xs font-medium uppercase">Email</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.email}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 text-sm">
+                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><Phone className="w-4 h-4 text-gray-600" /></div>
+                <div>
+                  <p className="text-gray-500 text-xs font-medium uppercase">Số điện thoại</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.phone || "Chưa cập nhật"}</p>
+                </div>
+              </div>
+
+              {/* Các trường chưa có trong DB thì hiển thị mặc định */}
+              <div className="flex items-center space-x-3 text-sm">
+                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><Calendar className="w-4 h-4 text-gray-600" /></div>
+                <div>
+                  <p className="text-gray-500 text-xs font-medium uppercase">Ngày sinh</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.dob || "Chưa cập nhật"}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 text-sm">
+                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><MapPin className="w-4 h-4 text-gray-600" /></div>
+                <div>
+                  <p className="text-gray-500 text-xs font-medium uppercase">Địa chỉ</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.address || "Chưa cập nhật"}</p>
+                </div>
+              </div>
+              
+              {user.bio && (
+                <div className="pt-2">
+                    <p className="text-gray-500 text-xs font-medium uppercase mb-1">Giới thiệu</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 italic bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">"{user.bio}"</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-8 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <Button variant="outline" className="flex-1 border-gray-300" onClick={() => alert("Tính năng chỉnh sửa đang phát triển")}>
+                <Edit className="w-4 h-4 mr-2" /> Sửa
               </Button>
+              
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="flex-1">
-                    Xóa
+                  <Button variant="destructive" className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 shadow-none">
+                    <Trash2 className="w-4 h-4 mr-2" /> Xóa
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="text-gray-900 dark:text-white">
-                      Xác nhận xóa
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="text-gray-600 dark:text-gray-300">
-                      Bạn có chắc chắn muốn xóa nhân viên {extendedPerson.name}?
-                      Hành động này không thể hoàn tác.
+                    <AlertDialogTitle>Xác nhận xóa nhân viên?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Bạn đang thao tác xóa <strong>{user.name}</strong>. Hành động này không thể hoàn tác.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogCancel className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">
-                    Hủy
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteEmployee}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    Xóa
-                  </AlertDialogAction>
+                  <AlertDialogAction className="bg-red-600 hover:bg-red-700">Xóa vĩnh viễn</AlertDialogAction>
+                  <AlertDialogCancel>Hủy bỏ</AlertDialogCancel>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
           </CardContent>
         </Card>
 
-        {/* Attendance Calendar */}
-        <div className="lg:col-span-2">
-          <AttendanceHistory
-            records={attendanceRecords}
-            userName={extendedPerson.name}
-            isEditMode={isEditMode}
-            onEditModeChange={setIsEditMode}
-            allowEdit={true}
-          />
-        </div>
-      </div>
-
-      {isEditFormOpen && editFormData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-gray-900 dark:text-white">
-                Chỉnh sửa thông tin nhân viên
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Họ và tên
-                </label>
-                <Input
-                  value={editFormData.name}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, name: e.target.value })
-                  }
-                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email
-                </label>
-                <Input
-                  value={editFormData.email}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, email: e.target.value })
-                  }
-                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Số điện thoại
-                </label>
-                <Input
-                  value={editFormData.phone}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, phone: e.target.value })
-                  }
-                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Ngày sinh
-                </label>
-                <Input
-                  value={editFormData.dob}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, dob: e.target.value })
-                  }
-                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Địa chỉ
-                </label>
-                <Input
-                  value={editFormData.location}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      location: e.target.value,
-                    })
-                  }
-                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                />
-              </div>
-            </CardContent>
-            <div className="flex gap-2 p-6 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditFormOpen(false)}
-                className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={() => {
-                  handleSaveEdit(editFormData);
-                }}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-              >
-                Lưu
-              </Button>
-            </div>
+        {/* Cột phải: Lịch sử chấm công */}
+        <div className="lg:col-span-2 space-y-6">
+          <AttendanceHistory records={attendanceRecords} />
+          
+          {/* Có thể thêm các Card khác như Dự án, KPI ở đây */}
+          <Card>
+             <CardHeader><CardTitle>Dự án đang tham gia</CardTitle></CardHeader>
+             <CardContent>
+                <p className="text-gray-500 text-sm italic">Chưa có dữ liệu dự án.</p>
+             </CardContent>
           </Card>
         </div>
-      )}
+      </div>
     </div>
   );
 }

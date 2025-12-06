@@ -12,7 +12,7 @@ router.post('/login', async (req, res) => {
     // 1. Tìm user
     const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
     if (rows.length === 0) {
-      return res.status(400).json({ msg: 'Email không tồn tại' });
+      return res.status(400).json({ msg: 'Tài khoản không hợp lệ' });
     }
     const user = rows[0];
 

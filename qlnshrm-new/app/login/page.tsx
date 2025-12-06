@@ -29,63 +29,72 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 export default function LoginPage() {
   const router = useRouter();
 
-  // 1. STATE QUẢN LÝ DỮ LIỆU NHẬP VÀO
   // State cho form Nhân viên
   const [emailEmployee, setEmailEmployee] = useState("");
   const [passwordEmployee, setPasswordEmployee] = useState("");
 
   // State cho form HR
-  const [usernameHr, setUsernameHr] = useState(""); // Trong DB, trường này map với cột 'email'
+  const [usernameHr, setUsernameHr] = useState("");
   const [passwordHr, setPasswordHr] = useState("");
 
   // State trạng thái
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 2. HÀM XỬ LÝ ĐĂNG NHẬP
-  const handleLogin = async (e: React.FormEvent, role: "employee" | "hr") => {
+  // HÀM XỬ LÝ ĐĂNG NHẬP
+  const handleLogin = async (e: React.FormEvent, loginType: "employee" | "hr") => {
     e.preventDefault();
     setIsLoading(true);
-    setError(""); // Xóa lỗi cũ nếu có
+    setError("");
 
     // Lấy dữ liệu tùy theo tab đang đứng
-    const emailPayload = role === "employee" ? emailEmployee : usernameHr;
-    const passwordPayload = role === "employee" ? passwordEmployee : passwordHr;
+    const emailPayload = loginType === "employee" ? emailEmployee : usernameHr;
+    const passwordPayload = loginType === "employee" ? passwordEmployee : passwordHr;
 
     try {
-      // Gọi API Backend (Port 5000)
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      // 1. Gọi API Backend để kiểm tra email/password
+      const res = await fetch("http://192.168.2.103:5000/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: emailPayload,
           password: passwordPayload,
-          role: role,
+          role: loginType, 
         }),
       });
 
       const data = await res.json();
 
-      // Nếu Server trả về lỗi (ví dụ: 400 hoặc 403)
       if (!res.ok) {
-        throw new Error(data.msg || "Đăng nhập thất bại. Vui lòng thử lại.");
+        throw new Error(data.msg || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
       }
 
-      // ĐĂNG NHẬP THÀNH CÔNG
-      // Lưu token và thông tin user vào bộ nhớ trình duyệt
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      const userData = data.user;
+      const isAccountHr = Boolean(userData.is_hr); // Chuyển về true/false cho chắc chắn
 
-      // Chuyển hướng trang
-      if (role === "hr") {
+      // 2. --- KIỂM TRA KHỚP TAB (LOGIC MỚI) ---
+      
+      // Trường hợp 1: Đang ở tab NHÂN VIÊN mà dùng tài khoản HR
+      if (loginType === "employee" && isAccountHr) {
+        throw new Error("⛔ Tài khoản này là Quản trị (HR). Vui lòng chuyển sang tab 'Quản trị nhân sự' để đăng nhập.");
+      }
+
+      // Trường hợp 2: Đang ở tab HR mà dùng tài khoản NHÂN VIÊN
+      if (loginType === "hr" && !isAccountHr) {
+        throw new Error("⛔ Tài khoản này là Nhân viên thường. Vui lòng chuyển sang tab 'Nhân viên' để đăng nhập.");
+      }
+
+      // 3. Nếu đúng Tab -> Tiến hành lưu và chuyển trang
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      if (isAccountHr) {
         router.push("/hr/dashboard");
       } else {
         router.push("/employee/dashboard");
       }
+
     } catch (err: any) {
-      // Hiển thị lỗi ra màn hình
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -117,7 +126,7 @@ export default function LoginPage() {
               Máy Chấm Công (Quét QR)
             </Button>
 
-            {/* HIỂN THỊ THÔNG BÁO LỖI NẾU CÓ */}
+            {/* Khu vực hiển thị lỗi */}
             {error && (
               <Alert
                 variant="destructive"
@@ -131,7 +140,7 @@ export default function LoginPage() {
             <Tabs
               defaultValue="employee"
               className="w-full"
-              onValueChange={() => setError("")}
+              onValueChange={() => setError("")} // Xóa lỗi khi chuyển tab
             >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="employee">Nhân viên</TabsTrigger>
@@ -140,18 +149,14 @@ export default function LoginPage() {
 
               {/* === TAB NHÂN VIÊN === */}
               <TabsContent value="employee" className="mt-4">
-                <form
-                  onSubmit={(e) => handleLogin(e, "employee")}
-                  className="space-y-4"
-                >
+                <form onSubmit={(e) => handleLogin(e, "employee")} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email-employee">Email công ty</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      {/* Đã gắn value và onChange */}
                       <Input
                         id="email-employee"
-                        placeholder="lily.grace@company.com"
+                        placeholder="nhanvien@company.com"
                         className="pl-10"
                         required
                         type="email"
@@ -164,11 +169,10 @@ export default function LoginPage() {
                     <Label htmlFor="password-employee">Mật khẩu</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      {/* Đã gắn value và onChange */}
                       <Input
                         id="password-employee"
                         type="password"
-                        placeholder="••••••••" // Gợi ý: nhập 123456
+                        placeholder="••••••••"
                         className="pl-10"
                         required
                         value={passwordEmployee}
@@ -179,12 +183,7 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="remember-employee" />
-                      <label
-                        htmlFor="remember-employee"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Ghi nhớ đăng nhập
-                      </label>
+                      <label htmlFor="remember-employee" className="text-sm cursor-pointer">Ghi nhớ đăng nhập</label>
                     </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
@@ -196,18 +195,14 @@ export default function LoginPage() {
 
               {/* === TAB HR === */}
               <TabsContent value="hr" className="mt-4">
-                <form
-                  onSubmit={(e) => handleLogin(e, "hr")}
-                  className="space-y-4"
-                >
+                <form onSubmit={(e) => handleLogin(e, "hr")} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="username-hr">Tên đăng nhập / Email</Label>
+                    <Label htmlFor="username-hr">Email quản trị</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      {/* Đã gắn value và onChange */}
                       <Input
                         id="username-hr"
-                        placeholder="admin.hr"
+                        placeholder="admin.hr@company.com"
                         className="pl-10"
                         required
                         value={usernameHr}
@@ -219,11 +214,10 @@ export default function LoginPage() {
                     <Label htmlFor="password-hr">Mật khẩu quản trị</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      {/* Đã gắn value và onChange */}
                       <Input
                         id="password-hr"
                         type="password"
-                        placeholder="••••••••" // Gợi ý: nhập 123456
+                        placeholder="••••••••"
                         className="pl-10"
                         required
                         value={passwordHr}
@@ -234,19 +228,10 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="remember-hr" />
-                      <label
-                        htmlFor="remember-hr"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Ghi nhớ đăng nhập
-                      </label>
+                      <label htmlFor="remember-hr" className="text-sm cursor-pointer">Ghi nhớ đăng nhập</label>
                     </div>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                    disabled={isLoading}
-                  >
+                  <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={isLoading}>
                     {isLoading ? "Đang xử lý..." : "Đăng nhập quản trị"}
                     {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                   </Button>
