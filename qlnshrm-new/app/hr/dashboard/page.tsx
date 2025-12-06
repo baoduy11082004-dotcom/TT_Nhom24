@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,17 +20,64 @@ import {
 } from "lucide-react"
 
 export default function HRDashboard() {
-  // Mock data for HR Admin
-  const admin = {
-    name: "Trần Thị B",
+  const router = useRouter()
+
+  // 1. STATE QUẢN LÝ DỮ LIỆU
+  const [admin, setAdmin] = useState({
+    name: "Đang tải...",
     role: "HR Manager",
     department: "Human Resources",
-    email: "hr.manager@company.com",
+    email: "hr@company.com",
     phone: "+84 909 888 777",
-    location: "Hà Nội",
+    location: "Hồ Chí Minh",
     joinDate: "01/01/2020",
     avatar: "/placeholder.svg",
     id: "HR001",
+  })
+
+  const [activities, setActivities] = useState<any[]>([]) // Danh sách thông báo hoạt động
+
+  // 2. LẤY DỮ LIỆU TỪ LOCALSTORAGE VÀ API
+  useEffect(() => {
+    // a. Lấy thông tin Admin đang đăng nhập
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        setAdmin((prev) => ({
+          ...prev,
+          name: parsedUser.name || prev.name,
+          email: parsedUser.email || prev.email,
+          role: parsedUser.role || prev.role,
+          id: parsedUser.id || prev.id,
+          avatar: parsedUser.image_url || parsedUser.imageURL || prev.avatar
+        }))
+      } catch (e) { console.error(e) }
+    }
+
+    // b. Lấy danh sách thông báo (Hoạt động gần đây)
+    const fetchActivities = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/leave/notifications?role=hr')
+        if (res.ok) {
+          const data = await res.json()
+          setActivities(data)
+        }
+      } catch (err) {
+        console.error("Lỗi lấy hoạt động:", err)
+      }
+    }
+
+    fetchActivities()
+    // Cập nhật tự động mỗi 10 giây
+    const interval = setInterval(fetchActivities, 10000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Helper format thời gian
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
   }
 
   const stats = [
@@ -80,7 +129,7 @@ export default function HRDashboard() {
           <CardContent>
             <div className="flex flex-col items-center mb-6">
               <Avatar className="w-24 h-24 mb-4">
-                <AvatarImage src={admin.avatar || "/placeholder.svg"} />
+                <AvatarImage src={admin.avatar} />
                 <AvatarFallback>{admin.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <h3 className="text-xl font-semibold">{admin.name}</h3>
@@ -131,25 +180,36 @@ export default function HRDashboard() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions or Recent Activity */}
+        {/* --- PHẦN HOẠT ĐỘNG GẦN ĐÂY (ĐÃ SỬA) --- */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Hoạt động gần đây</CardTitle>
-            <CardDescription>Cập nhật mới nhất từ hệ thống nhân sự</CardDescription>
+            <CardDescription>Thông báo mới nhất từ hệ thống</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-start space-x-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                  <div className="w-2 h-2 mt-2 rounded-full bg-blue-500"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Nguyễn Văn {String.fromCharCode(64 + i)} vừa chấm công vào
-                    </p>
-                    <p className="text-xs text-gray-500">{new Date().toLocaleTimeString()} - Văn phòng Hồ Chí Minh</p>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+              {activities.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">Chưa có hoạt động nào.</p>
+              ) : (
+                activities.map((item: any) => (
+                  <div 
+                    key={item.id} 
+                    // SỰ KIỆN CLICK: CHUYỂN SANG TRANG DUYỆT ĐƠN
+                    onClick={() => router.push('/hr/leave-requests')}
+                    className="flex items-start space-x-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+                  >
+                    <div className={`w-2 h-2 mt-2 rounded-full ${item.is_read ? 'bg-gray-400' : 'bg-blue-500 animate-pulse'}`}></div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.message}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatTime(item.created_at)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

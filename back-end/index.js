@@ -1,19 +1,26 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+// Import file db để nó chạy lệnh kiểm tra kết nối
+require('./config/db'); 
 
 const app = express();
 
 // Middleware
-app.use(cors()); // Cho phép Frontend (port 3000) gọi sang
-app.use(express.json());
+app.use(cors()); 
 
-// Routes
-app.use("/api/auth", require("./routes/auth"));
+// --- QUAN TRỌNG: Tăng giới hạn dung lượng gửi lên (để upload được ảnh) ---
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Route test để biết server đang chạy
-app.get("/", (req, res) => {
-  res.send("API Backend đang chạy với MySQL...");
+// --- CÁC ROUTE API ---
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/projects', require('./routes/projects'));
+app.use('/api/leave', require('./routes/leave')); 
+app.use('/api/user', require('./routes/user'));
+
+// Route test trang chủ
+app.get('/', (req, res) => {
+    res.send('API Backend đang chạy với MySQL...');
 });
 
 const PORT = process.env.PORT || 5000;
