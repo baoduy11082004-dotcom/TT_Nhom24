@@ -42,46 +42,56 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   // HÀM XỬ LÝ ĐĂNG NHẬP
-  const handleLogin = async (e: React.FormEvent, loginType: "employee" | "hr") => {
+  const handleLogin = async (
+    e: React.FormEvent,
+    loginType: "employee" | "hr"
+  ) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     // Lấy dữ liệu tùy theo tab đang đứng
     const emailPayload = loginType === "employee" ? emailEmployee : usernameHr;
-    const passwordPayload = loginType === "employee" ? passwordEmployee : passwordHr;
+    const passwordPayload =
+      loginType === "employee" ? passwordEmployee : passwordHr;
 
     try {
       // 1. Gọi API Backend để kiểm tra email/password
-      const res = await fetch("http://192.168.2.103:5000/api/auth/login", {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: emailPayload,
           password: passwordPayload,
-          role: loginType, 
+          role: loginType,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.msg || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+        throw new Error(
+          data.msg || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
+        );
       }
 
       const userData = data.user;
       const isAccountHr = Boolean(userData.is_hr); // Chuyển về true/false cho chắc chắn
 
       // 2. --- KIỂM TRA KHỚP TAB (LOGIC MỚI) ---
-      
+
       // Trường hợp 1: Đang ở tab NHÂN VIÊN mà dùng tài khoản HR
       if (loginType === "employee" && isAccountHr) {
-        throw new Error("⛔ Tài khoản này là Quản trị (HR). Vui lòng chuyển sang tab 'Quản trị nhân sự' để đăng nhập.");
+        throw new Error(
+          "⛔ Tài khoản này là Quản trị (HR). Vui lòng chuyển sang tab 'Quản trị nhân sự' để đăng nhập."
+        );
       }
 
       // Trường hợp 2: Đang ở tab HR mà dùng tài khoản NHÂN VIÊN
       if (loginType === "hr" && !isAccountHr) {
-        throw new Error("⛔ Tài khoản này là Nhân viên thường. Vui lòng chuyển sang tab 'Nhân viên' để đăng nhập.");
+        throw new Error(
+          "⛔ Tài khoản này là Nhân viên thường. Vui lòng chuyển sang tab 'Nhân viên' để đăng nhập."
+        );
       }
 
       // 3. Nếu đúng Tab -> Tiến hành lưu và chuyển trang
@@ -93,7 +103,6 @@ export default function LoginPage() {
       } else {
         router.push("/employee/dashboard");
       }
-
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -149,7 +158,10 @@ export default function LoginPage() {
 
               {/* === TAB NHÂN VIÊN === */}
               <TabsContent value="employee" className="mt-4">
-                <form onSubmit={(e) => handleLogin(e, "employee")} className="space-y-4">
+                <form
+                  onSubmit={(e) => handleLogin(e, "employee")}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="email-employee">Email công ty</Label>
                     <div className="relative">
@@ -183,7 +195,12 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="remember-employee" />
-                      <label htmlFor="remember-employee" className="text-sm cursor-pointer">Ghi nhớ đăng nhập</label>
+                      <label
+                        htmlFor="remember-employee"
+                        className="text-sm cursor-pointer"
+                      >
+                        Ghi nhớ đăng nhập
+                      </label>
                     </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
@@ -195,7 +212,10 @@ export default function LoginPage() {
 
               {/* === TAB HR === */}
               <TabsContent value="hr" className="mt-4">
-                <form onSubmit={(e) => handleLogin(e, "hr")} className="space-y-4">
+                <form
+                  onSubmit={(e) => handleLogin(e, "hr")}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="username-hr">Email quản trị</Label>
                     <div className="relative">
@@ -228,10 +248,19 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="remember-hr" />
-                      <label htmlFor="remember-hr" className="text-sm cursor-pointer">Ghi nhớ đăng nhập</label>
+                      <label
+                        htmlFor="remember-hr"
+                        className="text-sm cursor-pointer"
+                      >
+                        Ghi nhớ đăng nhập
+                      </label>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={isLoading}>
+                  <Button
+                    type="submit"
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    disabled={isLoading}
+                  >
                     {isLoading ? "Đang xử lý..." : "Đăng nhập quản trị"}
                     {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                   </Button>

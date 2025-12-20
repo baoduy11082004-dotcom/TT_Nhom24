@@ -1,181 +1,140 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { AttendanceHistory, type AttendanceRecord } from "@/components/attendance-history"
-import { Calendar, Clock, DollarSign, Briefcase } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Clock, CalendarCheck, MapPin } from "lucide-react";
+// Import Component Lịch
+import { AttendanceCalendar } from "@/components/attendance-calendar";
 
 export default function EmployeeDashboard() {
-  const router = useRouter()
-  const [employee, setEmployee] = useState<any>({ name: "Đang tải...", salary: { month: "12/2025" } });
-  const [projects, setProjects] = useState<any[]>([]); 
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-
-  // --- HÀM TẠO DỮ LIỆU CHẤM CÔNG KẾT HỢP NGÀY NGHỈ ---
-  const generateAttendanceData = (year: number, month: number, approvedLeaves: any[]) => {
-    const days = new Date(year, month + 1, 0).getDate()
-    const records: AttendanceRecord[] = []
-    
-    for (let i = 1; i <= days; i++) {
-      const currentDate = new Date(year, month, i);
-      const dayOfWeek = currentDate.getDay();
-      
-      // Bỏ qua T7, CN
-      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-      
-      let status: "on-time" | "late" | "absent" | "leave" = "on-time";
-      let checkIn: string | undefined = "08:00";
-
-      // 1. KIỂM TRA NGÀY NGHỈ ĐÃ DUYỆT
-      // approvedLeaves là mảng chứa { start_date, end_date } từ API
-      const isLeaveDay = approvedLeaves.some(leave => {
-        const start = new Date(leave.start_date);
-        const end = new Date(leave.end_date);
-        
-        // Chuẩn hóa giờ về 00:00:00 để so sánh ngày
-        start.setHours(0,0,0,0);
-        end.setHours(0,0,0,0);
-        currentDate.setHours(0,0,0,0);
-        
-        return currentDate >= start && currentDate <= end;
-      });
-
-      if (isLeaveDay) {
-        status = "leave"; 
-        checkIn = "Nghỉ phép";
-      } else {
-        // Random dữ liệu đi làm cho những ngày không nghỉ
-        const random = Math.random();
-        if (random > 0.95) { status = "absent"; checkIn = undefined; }
-        else if (random > 0.85) { status = "late"; checkIn = "08:35"; }
-      }
-
-      records.push({ 
-        date: new Date(year, month, i), 
-        status: status as any, 
-        checkIn 
-      })
-    }
-    return records;
-  }
+  const [user, setUser] = useState<any>(null);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        const userReal = JSON.parse(storedUser)
-        setEmployee(userReal);
+    // 1. Lấy thông tin user từ localStorage
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const userData = JSON.parse(userStr);
+      setUser(userData);
 
-        if (userReal.id) {
-          // 1. Lấy Dự án
-          fetch(`http://localhost:5000/api/projects/my-projects?userId=${userReal.id}`)
-            .then(res => res.json())
-            .then(data => setProjects(data))
-            .catch(e => console.error(e));
-
-          // 2. Lấy Ngày nghỉ ĐÃ DUYỆT -> Tạo lịch
-          fetch(`http://localhost:5000/api/leave/my-approved?userId=${userReal.id}`)
-            .then(res => res.json())
-            .then(approvedLeaves => {
-                // Tạo dữ liệu tháng 12/2025 (Bạn có thể đổi tháng theo ý muốn)
-                const data = generateAttendanceData(2025, 11, approvedLeaves); 
-                setAttendanceRecords(data);
-            })
-            .catch(e => console.error(e));
-        }
-      } catch (e) { console.error(e) }
+      // 2. Gọi API lấy lịch sử chấm công của chính mình
+      fetch(
+        `http://localhost:5000/api/attendance/history/${
+          userData.id
+        }?t=${Date.now()}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          setAttendanceData(data);
+        })
+        .catch((err) => console.error("Lỗi:", err));
     }
-  }, [])
+  }, []);
+
+  if (!user) return <div className="p-8">Đang tải dữ liệu...</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Xin chào, {employee.name} 👋
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">Chúc bạn một ngày làm việc hiệu quả!</p>
+    <div className="p-6 space-y-8 max-w-6xl mx-auto">
+      {/* Header Chào mừng */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-blue-100">
+            <AvatarImage src={user.image_url} />
+            <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              Xin chào, {user.name} 👋
+            </h1>
+            <p className="text-gray-500">
+              Chúc bạn một ngày làm việc hiệu quả!
+            </p>
+          </div>
         </div>
-        <Button onClick={() => router.push("/employee/leave-request")} className="bg-blue-600 hover:bg-blue-700">
-          <Calendar className="w-4 h-4 mr-2" /> Xin nghỉ phép
-        </Button>
+        <div className="flex gap-3">
+          <div className="bg-blue-50 px-4 py-2 rounded-lg text-blue-700 font-medium text-sm flex items-center gap-2">
+            <Clock className="h-4 w-4" /> {user.work_start} - {user.work_end}
+          </div>
+          <div className="bg-green-50 px-4 py-2 rounded-lg text-green-700 font-medium text-sm flex items-center gap-2">
+            <MapPin className="h-4 w-4" /> {user.team_id?.toUpperCase()}
+          </div>
+        </div>
       </div>
 
+      {/* Khu vực Lịch Chấm Công */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* CỘT TRÁI */}
+        {/* Cột trái: Lịch */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* LỊCH SỬ CHẤM CÔNG */}
-          <AttendanceHistory records={attendanceRecords} />
-          
-          {/* DỰ ÁN */}
-          <Card>
+          <Card className="shadow-md border-none">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Briefcase className="w-5 h-5 mr-2 text-purple-500" />
-                Dự án đang tham gia
+              <CardTitle className="flex items-center gap-2">
+                <CalendarCheck className="h-5 w-5 text-blue-600" />
+                Bảng công tháng này
               </CardTitle>
+              <CardDescription>
+                Theo dõi trạng thái điểm danh hàng ngày của bạn
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {projects.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">Bạn chưa tham gia dự án nào.</p>
-              ) : (
-                <div className="space-y-4">
-                  {projects.map((project) => (
-                    <div key={project.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{project.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs bg-white">{project.role}</Badge>
-                          <span className="text-xs text-gray-500">
-                            Tham gia: {new Date(project.joined_at).toLocaleDateString('vi-VN')}
-                          </span>
-                        </div>
-                      </div>
-                      <Badge className={project.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}>
-                        {project.status === 'IN_PROGRESS' ? 'Đang thực hiện' : project.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Component Lịch (Read Only) */}
+              <AttendanceCalendar
+                data={attendanceData}
+                isEditable={false} // Nhân viên chỉ xem
+              />
             </CardContent>
           </Card>
         </div>
 
-        {/* CỘT PHẢI */}
+        {/* Cột phải: Thống kê nhanh */}
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle className="flex items-center text-base"><Clock className="w-4 h-4 mr-2 text-green-500" /> Thống kê tháng này</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Thống kê nhanh</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
-               <div className="flex justify-between items-center">
-                   <span className="text-sm text-gray-500">Ngày công thực tế</span>
-                   <span className="font-bold text-lg">{attendanceRecords.filter(r => r.status === 'on-time' || r.status === 'late').length}</span>
-               </div>
-               <div className="flex justify-between items-center">
-                   <span className="text-sm text-gray-500">Số ngày nghỉ phép</span>
-                   {/* Đếm số ngày nghỉ */}
-                   <span className="font-bold text-lg text-purple-600">{attendanceRecords.filter(r => r.status === 'leave').length}</span>
-               </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Số ngày đi làm</span>
+                <span className="font-bold text-xl">
+                  {attendanceData.length}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg text-green-700">
+                <span>Đúng giờ</span>
+                <span className="font-bold text-xl">
+                  {attendanceData.filter((x) => x.status === "Đúng giờ").length}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg text-yellow-700">
+                <span>Đi trễ</span>
+                <span className="font-bold text-xl">
+                  {attendanceData.filter((x) => x.status === "Đi trễ").length}
+                </span>
+              </div>
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white border-none shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center text-white"><DollarSign className="w-5 h-5 mr-2 opacity-80" /> Thu nhập ước tính</CardTitle>
-              <CardDescription className="text-blue-100">Tháng 12/2025</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">29.000.000 ₫</div>
-              <p className="text-sm text-blue-100 opacity-80">Đã bao gồm thưởng & phụ cấp</p>
+
+          <Card className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-none">
+            <CardContent className="p-6">
+              <h3 className="font-bold text-lg mb-2">Quy định chấm công</h3>
+              <ul className="text-sm space-y-2 opacity-90 list-disc list-inside">
+                <li>
+                  Giờ vào làm: <strong>{user.work_start}</strong>
+                </li>
+                <li>Đi trễ quá 5 phút sẽ bị tính là trễ.</li>
+                <li>Nếu quên chấm công, vui lòng liên hệ HR để được hỗ trợ.</li>
+              </ul>
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
-  )
+  );
 }

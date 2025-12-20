@@ -1,131 +1,259 @@
-"use client"
+"use client";
 
-import React, { useState, useRef } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Camera } from "lucide-react"
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Plus } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+
+// 1. Định nghĩa Schema Validate (Quy tắc nhập liệu)
+const formSchema = z.object({
+  id: z.string().min(3, "ID phải có ít nhất 3 ký tự"),
+  name: z.string().min(2, "Tên phải có ít nhất 2 ký tự"),
+  email: z.string().email("Email không hợp lệ"),
+  password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
+  role: z.string().min(1, "Vui lòng chọn chức vụ"),
+  team: z.string().min(1, "Vui lòng chọn phòng ban"),
+});
+
+// 2. Định nghĩa kiểu dữ liệu cho Props (CÁI BẠN ĐANG THIẾU)
 interface AddEmployeeDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSubmit: (data: any) => void
+  onSuccess?: () => void; // Hàm này sẽ được gọi khi thêm thành công
 }
 
-export function AddEmployeeDialog({ open, onOpenChange, onSubmit }: AddEmployeeDialogProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    team_id: "dev", // Mặc định
-    imageURL: ""
-  })
+export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      id: "",
+      name: "",
+      email: "",
+      password: "123", // Mặc định mật khẩu demo
+      role: "",
+      team: "",
+    },
+  });
 
-  // Xử lý chọn ảnh -> Chuyển sang Base64
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) return alert("Ảnh quá lớn (Max 2MB)!");
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, imageURL: reader.result as string }))
-      };
-      reader.readAsDataURL(file);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      // Gọi API thêm nhân viên
+      const res = await fetch("http://localhost:5000/api/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.msg || "Có lỗi xảy ra");
+      }
+
+      // THÀNH CÔNG:
+      toast({
+        title: "Thêm nhân viên thành công",
+        description: `${values.name} đã được thêm vào hệ thống.`,
+      });
+
+      setOpen(false); // Đóng dialog
+      form.reset(); // Xóa dữ liệu cũ trong form
+
+      // 3. GỌI HÀM ONSUCCESS ĐỂ BÁO CHO TRANG CHA BIẾT (Để reload lại bảng)
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   }
 
-  const handleSubmit = () => {
-    if(!formData.name || !formData.email) return alert("Vui lòng nhập Tên và Email!");
-    onSubmit(formData)
-    handleCancel() // Reset form sau khi gửi
-  }
-
-  const handleCancel = () => {
-    setFormData({
-      name: "", email: "", phone: "", role: "", team_id: "dev", imageURL: ""
-    })
-    onOpenChange(false)
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="mr-2 h-4 w-4" /> Thêm nhân viên
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-white">Thêm nhân sự mới</DialogTitle>
+          <DialogTitle>Thêm nhân viên mới</DialogTitle>
+          <DialogDescription>
+            Tạo tài khoản mới cho nhân viên. Nhấn lưu khi hoàn tất.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          
-          {/* PHẦN CHỌN ẢNH */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <Avatar className="w-24 h-24 border-2 border-dashed border-gray-300">
-                <AvatarImage src={formData.imageURL} className="object-cover" />
-                <AvatarFallback>IMG</AvatarFallback>
-              </Avatar>
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
-            <p className="text-xs text-gray-500">Chạm để tải ảnh đại diện</p>
-          </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* ID */}
+            <FormField
+              control={form.control}
+              name="id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mã Nhân viên (ID)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="VD: dev_005" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Họ và tên <span className="text-red-500">*</span></Label>
-              <Input name="name" value={formData.name} onChange={handleChange} placeholder="Nguyễn Văn A" />
-            </div>
-            <div className="space-y-2">
-              <Label>Email <span className="text-red-500">*</span></Label>
-              <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="email@company.com" />
-            </div>
-          </div>
+            {/* Tên */}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Họ và Tên</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nguyễn Văn A" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Số điện thoại</Label>
-              <Input name="phone" value={formData.phone} onChange={handleChange} placeholder="0909..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Chức vụ</Label>
-              <Input name="role" value={formData.role} onChange={handleChange} placeholder="VD: Developer" />
-            </div>
-          </div>
+            {/* Email */}
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="example@company.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="space-y-2">
-            <Label>Phòng ban</Label>
-            <select 
-              name="team_id" 
-              value={formData.team_id} 
-              onChange={handleChange}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <option value="dev">Kỹ thuật (Engineering)</option>
-              <option value="design">Thiết kế (Design)</option>
-              <option value="qa">Kiểm thử (QA)</option>
-              <option value="marketing">Marketing</option>
-              <option value="hr">Nhân sự (HR)</option>
-            </select>
-          </div>
+            {/* Password */}
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mật khẩu</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        </div>
+            {/* Role */}
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Chức vụ</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn chức vụ" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Frontend Developer">
+                        Frontend Developer
+                      </SelectItem>
+                      <SelectItem value="Backend Developer">
+                        Backend Developer
+                      </SelectItem>
+                      <SelectItem value="UI/UX Designer">
+                        UI/UX Designer
+                      </SelectItem>
+                      <SelectItem value="Tester">Tester</SelectItem>
+                      <SelectItem value="HR Staff">HR Staff</SelectItem>
+                      <SelectItem value="Intern">Intern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={handleCancel}>Hủy</Button>
-          <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700">Lưu nhân viên</Button>
-        </DialogFooter>
+            {/* Team */}
+            <FormField
+              control={form.control}
+              name="team"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phòng ban</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn phòng ban" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="dev">Phát triển (Dev)</SelectItem>
+                      <SelectItem value="design">Thiết kế (Design)</SelectItem>
+                      <SelectItem value="qa">Kiểm thử (QA)</SelectItem>
+                      <SelectItem value="hr">Nhân sự (HR)</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Đang lưu..." : "Lưu nhân viên"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

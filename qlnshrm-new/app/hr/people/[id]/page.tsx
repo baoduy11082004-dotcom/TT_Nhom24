@@ -3,267 +3,156 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { AttendanceHistory, type AttendanceRecord } from "@/components/attendance-history";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   Mail,
+  Building,
+  Briefcase,
+  Clock,
   Phone,
   MapPin,
-  Calendar,
-  Briefcase,
-  FileDown,
-  Trash2,
-  Edit,
-  User as UserIcon
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-// 1. Định nghĩa kiểu dữ liệu User trả về từ API
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  team_id: string;
-  image_url: string;
-  bio: string;
-  // Các trường này chưa có trong DB, tạm thời để optional
-  dob?: string;
-  join_date?: string;
-  address?: string;
-}
+// Import Component Lịch mới
+import { AttendanceCalendar } from "@/components/attendance-calendar";
 
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const personId = params.id as string;
+  const id = params.id as string;
 
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [employee, setEmployee] = useState<any>(null);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
-  // 2. Lấy dữ liệu nhân viên từ API
+  // Hàm gọi API (được tách ra để tái sử dụng khi cần refresh)
+  const fetchData = async () => {
+    try {
+      // 1. Lấy thông tin user
+      const userRes = await fetch(`http://localhost:5000/api/user/${id}`);
+      let userData = null;
+      if (userRes.ok) userData = await userRes.json();
+
+      // 2. Lấy lịch sử chấm công
+      const attendanceRes = await fetch(
+        `http://localhost:5000/api/attendance/history/${id}?t=${Date.now()}`
+      ); // Thêm t để tránh cache
+      const attendanceList = await attendanceRes.json();
+
+      setEmployee(userData);
+      setAttendanceData(attendanceList);
+    } catch (error) {
+      console.error("Lỗi tải dữ liệu:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchUserDetail = async () => {
-      try {
-        const res = await fetch(`http://localhost:5000/api/user/profile/${personId}?_t=${Date.now()}`);
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data);
-        } else {
-          console.error("Không tìm thấy nhân viên");
-        }
-      } catch (error) {
-        console.error("Lỗi kết nối:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (id) fetchData();
+  }, [id]);
 
-    if (personId) {
-      fetchUserDetail();
-      // Tạo dữ liệu chấm công giả lập (vì chưa có API chấm công thật)
-      setAttendanceRecords(generateMockAttendance(2025, 10)); 
-    }
-  }, [personId]);
-
-  // Hàm tạo dữ liệu chấm công giả (Giữ nguyên logic cũ để hiển thị UI)
-  // Hàm tạo dữ liệu chấm công giả (Đã bỏ giới hạn ngày 20)
-  // Hàm tạo dữ liệu chấm công giả (Full tháng, bao gồm T7, CN)
-  const generateMockAttendance = (year: number, month: number): AttendanceRecord[] => {
-    // Lấy tổng số ngày trong tháng (tháng 10 là 31 ngày, tháng 1 là 28 ngày...)
-    const days = new Date(year, month + 1, 0).getDate();
-    const records: AttendanceRecord[] = [];
-    
-    for (let i = 1; i <= days; i++) {
-      const date = new Date(year, month, i);
-      const dayOfWeek = date.getDay();
-      
-      // Mặc định trạng thái
-      let status: "on-time" | "late" | "absent" | "leave" | "weekend" = "on-time";
-      let checkIn: string | undefined = "08:00";
-
-      // Nếu là Chủ Nhật (0) hoặc Thứ 7 (6) -> Đánh dấu là cuối tuần
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        status = "weekend";
-        checkIn = "--"; 
-      } else {
-        // Random dữ liệu cho ngày thường
-        const random = Math.random();
-        if (random > 0.85) { status = "late"; checkIn = "08:45"; } 
-        else if (random > 0.95) { status = "absent"; checkIn = ""; }
-      }
-
-      records.push({
-        date,
-        status: status as any,
-        checkIn: status === "absent" ? undefined : checkIn,
-      });
-    }
-    return records;
-  };
-  // Helper: Mapping tên phòng ban
-  const getTeamName = (teamId: string = "") => {
-    const map: Record<string, string> = {
-      'hr': 'Human Resources',
-      'dev': 'Engineering',
-      'design': 'Design',
-      'qa': 'Quality Assurance',
-      'marketing': 'Marketing'
-    };
-    return map[teamId.toLowerCase()] || teamId.toUpperCase();
-  };
-
-  if (loading) {
-    return <div className="p-6 text-center text-gray-500">Đang tải thông tin nhân viên...</div>;
-  }
-
-  if (!user) {
-    return <div className="p-6 text-center text-red-500">Không tìm thấy nhân viên này!</div>;
-  }
+  if (loading) return <div className="p-10 text-center">Đang tải hồ sơ...</div>;
+  if (!employee)
+    return <div className="p-10 text-center">Không tìm thấy nhân viên.</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <Button
-        variant="ghost"
-        onClick={() => router.back()}
-        className="mb-4 pl-0 hover:pl-2 transition-all"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Quay lại danh sách
-      </Button>
-
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-        <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Hồ sơ nhân viên</h1>
-            <p className="text-gray-500 text-sm">Quản lý thông tin chi tiết và lịch sử làm việc</p>
-        </div>
-        <Button className="bg-green-600 hover:bg-green-700">
-          <FileDown className="w-4 h-4 mr-2" /> Xuất hồ sơ
+    <div className="container mx-auto py-6 space-y-6 max-w-5xl">
+      {/* Nút Back */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <Card className="lg:col-span-1 h-fit shadow-sm">
-          <CardHeader className="pb-0">
-            <CardTitle>Thông tin chung</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center mb-6 text-center">
-              <Avatar className="w-32 h-32 mb-4 border-4 border-gray-100">
-                <AvatarImage src={user.image_url || "/placeholder.svg"} className="object-cover" />
-                <AvatarFallback className="text-4xl bg-blue-100 text-blue-600">
-                    {user.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.name}</h2>
-              <p className="text-gray-500 font-medium">{user.role || "Nhân viên"}</p>
-              
-              <div className="flex gap-2 mt-3">
-                <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none">
-                    {getTeamName(user.team_id)}
+      {/* Card Thông tin cá nhân */}
+      <Card className="border-none shadow-md bg-gradient-to-r from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            <Avatar className="h-28 w-28 border-4 border-white shadow-xl">
+              <AvatarImage
+                src={employee.image_url}
+                alt={employee.name}
+                className="object-cover"
+              />
+              <AvatarFallback className="text-3xl">
+                {employee.name?.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-3 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {employee.name}
+                  </h1>
+                  <p className="text-blue-600 font-semibold text-lg">
+                    {employee.role}
+                  </p>
+                </div>
+                <Badge
+                  className={employee.is_hr ? "bg-purple-600" : "bg-blue-600"}
+                >
+                  {employee.is_hr ? "HR Manager" : "Nhân viên chính thức"}
                 </Badge>
-                <Badge variant="outline" className="text-gray-500">
-                    {user.id}
-                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-300 mt-2">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 opacity-70" /> {employee.email}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Building className="h-4 w-4 opacity-70" /> Team:{" "}
+                  <span className="uppercase font-bold">
+                    {employee.team_id}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 opacity-70" /> ID: {employee.id}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 opacity-70" /> Ca:{" "}
+                  {employee.work_start} - {employee.work_end}
+                </div>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
 
-            <div className="space-y-5 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><Mail className="w-4 h-4 text-gray-600" /></div>
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase">Email</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.email}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><Phone className="w-4 h-4 text-gray-600" /></div>
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase">Số điện thoại</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.phone || "Chưa cập nhật"}</p>
-                </div>
-              </div>
+      {/* Tabs */}
+      <Tabs defaultValue="attendance" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="attendance">Bảng chấm công</TabsTrigger>
+          <TabsTrigger value="info">Thông tin chi tiết</TabsTrigger>
+        </TabsList>
 
-              {/* Các trường chưa có trong DB thì hiển thị mặc định */}
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><Calendar className="w-4 h-4 text-gray-600" /></div>
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase">Ngày sinh</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.dob || "Chưa cập nhật"}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800"><MapPin className="w-4 h-4 text-gray-600" /></div>
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase">Địa chỉ</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-200">{user.address || "Chưa cập nhật"}</p>
-                </div>
-              </div>
-              
-              {user.bio && (
-                <div className="pt-2">
-                    <p className="text-gray-500 text-xs font-medium uppercase mb-1">Giới thiệu</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 italic bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">"{user.bio}"</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-8 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <Button variant="outline" className="flex-1 border-gray-300" onClick={() => alert("Tính năng chỉnh sửa đang phát triển")}>
-                <Edit className="w-4 h-4 mr-2" /> Sửa
-              </Button>
-              
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 shadow-none">
-                    <Trash2 className="w-4 h-4 mr-2" /> Xóa
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Xác nhận xóa nhân viên?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Bạn đang thao tác xóa <strong>{user.name}</strong>. Hành động này không thể hoàn tác.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogAction className="bg-red-600 hover:bg-red-700">Xóa vĩnh viễn</AlertDialogAction>
-                  <AlertDialogCancel>Hủy bỏ</AlertDialogCancel>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Cột phải: Lịch sử chấm công */}
-        <div className="lg:col-span-2 space-y-6">
-          <AttendanceHistory records={attendanceRecords} />
-          
-          {/* Có thể thêm các Card khác như Dự án, KPI ở đây */}
+        <TabsContent value="attendance" className="mt-6 animate-in fade-in-50">
           <Card>
-             <CardHeader><CardTitle>Dự án đang tham gia</CardTitle></CardHeader>
-             <CardContent>
-                <p className="text-gray-500 text-sm italic">Chưa có dữ liệu dự án.</p>
-             </CardContent>
+            <CardHeader>
+              <CardTitle>Theo dõi chuyên cần</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* SỬ DỤNG COMPONENT LỊCH Ở ĐÂY */}
+              <AttendanceCalendar
+                data={attendanceData}
+                isEditable={true}
+                onDataChange={fetchData} // Refresh lại dữ liệu sau khi sửa
+              />
+            </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="info">
+          <Card>
+            <CardContent className="p-10 text-center text-gray-500">
+              Thông tin hợp đồng, bảo hiểm xã hội... (Đang cập nhật)
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
