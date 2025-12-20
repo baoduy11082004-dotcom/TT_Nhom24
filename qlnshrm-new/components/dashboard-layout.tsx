@@ -102,10 +102,10 @@ export default function DashboardLayout({ children, navItems, currentUser }: Das
         <header className="bg-white dark:bg-gray-800 border-b px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input placeholder="Search..." className="pl-10 w-80 bg-gray-50 border-none focus-visible:ring-1" />
+                
+                
              </div>
-             <span className="text-sm text-gray-400">⌘ F</span>
+             
           </div>
 
           <div className="flex items-center space-x-4">

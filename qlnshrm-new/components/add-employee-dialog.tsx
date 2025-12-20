@@ -144,7 +144,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                 <FormItem>
                   <FormLabel>Họ và Tên</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nguyễn Văn A" {...field} />
+                    <Input placeholder="Tên nhân viên" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -159,7 +159,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="example@company.com" {...field} />
+                    <Input placeholder="examplen@mailinator.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

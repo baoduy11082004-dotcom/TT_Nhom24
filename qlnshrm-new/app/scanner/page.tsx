@@ -1,73 +1,69 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Scanner } from "@yudiel/react-qr-scanner"; // Thư viện quét mã
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Scanner } from "@yudiel/react-qr-scanner"; 
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, XCircle, Clock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // Hook thông báo của bạn
+import { ArrowLeft, CheckCircle, XCircle, Clock, LogIn, LogOut } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-export default function ScannerPage() {
+// Tách Component content để dùng Suspense (Tránh lỗi build Next.js)
+function ScannerContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  
+  // Kiểm tra URL xem đang ở chế độ nào
+  const isCheckoutMode = searchParams.get("mode") === "checkout";
+
   const [isScanning, setIsScanning] = useState(true);
   const [lastResult, setLastResult] = useState<any>(null);
 
-  // Hàm xử lý khi quét được mã
   const handleScan = async (detectedCodes: any) => {
-    // Thư viện trả về mảng, lấy phần tử đầu tiên
     const rawValue = detectedCodes[0]?.rawValue;
 
     if (rawValue && isScanning) {
-      setIsScanning(false); // Tạm dừng quét để xử lý
+      setIsScanning(false);
+      
+      // Chọn API dựa trên chế độ
+      const apiEndpoint = isCheckoutMode 
+        ? "http://localhost:5000/api/attendance/checkout"
+        : "http://localhost:5000/api/attendance/scan";
 
       try {
-        // Gọi API Backend
-        const res = await fetch("http://localhost:5000/api/attendance/scan", {
+        const res = await fetch(apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: rawValue }), // Gửi mã QR (User ID)
+          body: JSON.stringify({ userId: rawValue }), 
         });
 
         const data = await res.json();
 
         if (res.ok) {
-          // --- KỊCH BẢN THÀNH CÔNG ---
           setLastResult({ type: "success", ...data });
-
-          // Hiện thông báo màu xanh
+          
           toast({
-            title:
-              data.status === "Đi trễ"
-                ? "⚠️ Đã điểm danh (Đi trễ)"
-                : "✅ Điểm danh thành công",
-            description: `Xin chào ${data.employee}. Thời gian: ${data.time}`,
-            variant: data.status === "Đi trễ" ? "destructive" : "default", // Đỏ nếu trễ, Xanh nếu đúng
+            title: isCheckoutMode ? "✅ Đã Check-out!" : (data.status === "Đi trễ" ? "⚠️ Check-in (Trễ)" : "✅ Check-in Thành công"),
+            description: isCheckoutMode 
+                ? `Hẹn gặp lại ${data.employee || 'bạn'}! Giờ về: ${data.checkOutTime}`
+                : `Xin chào ${data.employee}. Giờ vào: ${data.time}`,
+            className: isCheckoutMode ? "bg-orange-100 border-orange-500 text-orange-900" : "bg-green-100 border-green-500 text-green-900",
+            duration: 3000,
           });
-
-          // Phát âm thanh bip (nếu muốn)
-          // const audio = new Audio('/success-beep.mp3'); audio.play();
         } else {
-          // --- KỊCH BẢN LỖI (Đã điểm danh rồi hoặc mã sai) ---
           setLastResult({ type: "error", msg: data.msg });
           toast({
-            title: "Lỗi điểm danh",
-            description: data.msg,
-            variant: "destructive",
+             title: "Lỗi",
+             description: data.msg,
+             variant: "destructive",
           });
         }
       } catch (error) {
-        setLastResult({ type: "error", msg: "Không thể kết nối đến máy chủ" });
+        setLastResult({ type: "error", msg: "Lỗi kết nối máy chủ" });
       }
 
-      // Sau 3 giây cho phép quét tiếp
+      // Quét tiếp sau 3 giây
       setTimeout(() => {
         setIsScanning(true);
         setLastResult(null);
@@ -75,80 +71,63 @@ export default function ScannerPage() {
     }
   };
 
+  // Cấu hình giao diện (Màu Xanh cho Check-in, Cam cho Check-out)
+  const themeColor = isCheckoutMode ? "text-orange-600" : "text-blue-600";
+  const borderColor = isCheckoutMode ? "border-orange-500" : "border-blue-500";
+  const titleText = isCheckoutMode ? "MÁY CHECK-OUT (RA VỀ)" : "MÁY CHẤM CÔNG (VÀO CA)";
+
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative">
-      {/* Nút quay lại */}
       <Button
         variant="ghost"
-        className="absolute top-4 left-4 text-white hover:bg-white/20"
-        onClick={() => router.back()}
+        className="absolute top-4 left-4 text-white hover:bg-white/20 z-10"
+        onClick={() => router.back()} // Quay lại Dashboard
       >
         <ArrowLeft className="mr-2 h-6 w-6" /> Quay lại
       </Button>
 
-      <Card className="w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl border-0">
-        <CardHeader className="text-center pb-2">
-          <CardTitle className="text-2xl font-bold">Máy Chấm Công</CardTitle>
-          <CardDescription>
-            Vui lòng đưa mã QR nhân viên vào khung hình
-          </CardDescription>
+      <Card className="w-full max-w-md bg-white shadow-2xl border-0">
+        <CardHeader className={`text-center pb-4 ${isCheckoutMode ? 'bg-orange-50' : 'bg-blue-50'} rounded-t-xl`}>
+          <CardTitle className={`text-2xl font-black uppercase ${themeColor}`}>
+            {titleText}
+          </CardTitle>
+          <CardDescription>Đưa mã QR nhân viên vào khung</CardDescription>
         </CardHeader>
 
-        <CardContent className="flex flex-col items-center space-y-4">
-          <div className="relative w-full aspect-square overflow-hidden rounded-xl border-4 border-blue-500 shadow-inner bg-gray-100">
-            {/* COMPONENT QUÉT MÃ QR */}
-            <Scanner
-              onScan={handleScan}
-              allowMultiple={true}
-              scanDelay={2000} // Đợi 2s giữa các lần quét
-            />
-
-            {/* Hiệu ứng khung ngắm */}
-            <div className="absolute inset-0 border-2 border-white/30 rounded-xl pointer-events-none">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-blue-400 rounded-lg animate-pulse"></div>
+        <CardContent className="flex flex-col items-center p-0">
+          <div className="relative w-full aspect-square bg-black">
+            <Scanner onScan={handleScan} allowMultiple={true} scanDelay={2000} />
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+               <div className={`w-64 h-64 border-4 rounded-3xl animate-pulse ${borderColor} opacity-80`}></div>
             </div>
           </div>
 
-          {/* KHU VỰC HIỂN THỊ KẾT QUẢ SAU KHI QUÉT */}
-          <div className="h-24 w-full flex items-center justify-center">
+          <div className="w-full p-6 min-h-[120px] flex items-center justify-center bg-white rounded-b-xl">
             {lastResult ? (
-              <div
-                className={`text-center p-4 rounded-lg w-full ${
-                  lastResult.type === "success"
-                    ? lastResult.status === "Đi trễ"
-                      ? "bg-orange-100 text-orange-700"
-                      : "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2 font-bold text-lg mb-1">
-                  {lastResult.type === "success" ? (
-                    <CheckCircle />
-                  ) : (
-                    <XCircle />
-                  )}
-                  {lastResult.type === "success"
-                    ? lastResult.employee
-                    : "Thất bại"}
-                </div>
-                <div className="text-sm flex items-center justify-center gap-1">
-                  {lastResult.type === "success" && (
-                    <>
-                      <Clock className="w-4 h-4" /> {lastResult.time} -{" "}
-                      {lastResult.status}
-                    </>
-                  )}
-                  {lastResult.type === "error" && lastResult.msg}
-                </div>
+              <div className={`flex flex-col items-center animate-in zoom-in ${lastResult.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+                 {lastResult.type === 'success' ? <CheckCircle className="w-12 h-12 mb-2" /> : <XCircle className="w-12 h-12 mb-2" />}
+                 <p className="font-bold text-xl text-center">{lastResult.msg || (isCheckoutMode ? "Đã ra về" : "Đã vào ca")}</p>
+                 {lastResult.type === 'success' && (
+                    <p className="text-gray-600 font-medium mt-1">{lastResult.employee} - {lastResult.time || lastResult.checkOutTime}</p>
+                 )}
               </div>
             ) : (
-              <p className="text-gray-400 animate-pulse text-sm">
-                Đang chờ quét...
-              </p>
+              <div className={`flex flex-col items-center ${isCheckoutMode ? 'text-orange-400' : 'text-blue-400'} animate-pulse`}>
+                 {isCheckoutMode ? <LogOut className="w-10 h-10 mb-2 opacity-50" /> : <LogIn className="w-10 h-10 mb-2 opacity-50" />}
+                 <p className="font-semibold">Đang chờ quét...</p>
+              </div>
             )}
           </div>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ScannerPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-center mt-20">Đang khởi động Camera...</div>}>
+      <ScannerContent />
+    </Suspense>
   );
 }

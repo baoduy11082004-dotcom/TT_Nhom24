@@ -25,7 +25,7 @@ export default function ClientLayout({
   // --- LOGIC BẢO MẬT & ĐIỀU HƯỚNG ---
   useEffect(() => {
     // 1. Các trang KHÔNG CẦN đăng nhập thì bỏ qua kiểm tra
-    const publicPaths = ["/login", "/scanner", "/"];
+    const publicPaths = ["/login", "/scanner", "/","/forgot-password", "/reset-password"];
     if (publicPaths.includes(pathname)) {
       if (pathname === "/") router.push("/login"); // Trang chủ tự về login
       return;
