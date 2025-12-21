@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus } from "lucide-react";
+import { Plus, AlertCircle, Loader2 } from "lucide-react"; // Nhớ import Loader2
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-// 1. Định nghĩa Schema Validate (Quy tắc nhập liệu)
+// 1. Schema Validate
 const formSchema = z.object({
   id: z.string().min(3, "ID phải có ít nhất 3 ký tự"),
   name: z.string().min(2, "Tên phải có ít nhất 2 ký tự"),
@@ -44,13 +44,14 @@ const formSchema = z.object({
   team: z.string().min(1, "Vui lòng chọn phòng ban"),
 });
 
-// 2. Định nghĩa kiểu dữ liệu cho Props (CÁI BẠN ĐANG THIẾU)
+// 2. Props
 interface AddEmployeeDialogProps {
-  onSuccess?: () => void; // Hàm này sẽ được gọi khi thêm thành công
+  onSuccess?: () => void;
 }
 
 export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   const [open, setOpen] = useState(false);
+  const [serverError, setServerError] = useState(""); // Biến lưu lỗi từ Server
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -59,15 +60,16 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       id: "",
       name: "",
       email: "",
-      password: "123", // Mặc định mật khẩu demo
+      password: "123",
       role: "",
       team: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setServerError(""); // Xóa lỗi cũ
+
     try {
-      // Gọi API thêm nhân viên
       const res = await fetch("http://localhost:5000/api/user", {
         method: "POST",
         headers: {
@@ -79,25 +81,35 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.msg || "Có lỗi xảy ra");
+        // CẬP NHẬT BIẾN LỖI ĐỂ HIỆN THÔNG BÁO ĐỎ
+        setServerError(data.msg || "Có lỗi xảy ra");
+        
+        // Hiện thêm toast báo lỗi cho chắc
+        toast({
+            variant: "destructive",
+            title: "Lỗi",
+            description: data.msg,
+        });
+        return;
       }
 
       // THÀNH CÔNG:
       toast({
         title: "Thêm nhân viên thành công",
         description: `${values.name} đã được thêm vào hệ thống.`,
+        className: "bg-green-50 border-green-200 text-green-800",
       });
 
-      setOpen(false); // Đóng dialog
-      form.reset(); // Xóa dữ liệu cũ trong form
+      setOpen(false);
+      form.reset();
 
-      // 3. GỌI HÀM ONSUCCESS ĐỂ BÁO CHO TRANG CHA BIẾT (Để reload lại bảng)
       if (onSuccess) {
         onSuccess();
       }
     } catch (error: any) {
+      setServerError("Không thể kết nối đến Server");
       toast({
-        title: "Lỗi",
+        title: "Lỗi mạng",
         description: error.message,
         variant: "destructive",
       });
@@ -105,7 +117,13 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(val) => {
+        setOpen(val);
+        if(!val) setServerError(""); // Đóng form thì reset lỗi
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" /> Thêm nhân viên
@@ -121,6 +139,15 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            {/* === KHU VỰC HIỂN THỊ LỖI MÀU ĐỎ === */}
+            {serverError && (
+              <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md animate-in fade-in slide-in-from-top-2">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <span className="font-semibold">{serverError}</span>
+              </div>
+            )}
+
             {/* ID */}
             <FormField
               control={form.control}
@@ -248,7 +275,11 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
 
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Đang lưu..." : "Lưu nhân viên"}
+                {form.formState.isSubmitting ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...
+                    </>
+                ) : "Lưu nhân viên"}
               </Button>
             </DialogFooter>
           </form>

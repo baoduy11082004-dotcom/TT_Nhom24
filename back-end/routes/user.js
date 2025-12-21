@@ -9,10 +9,7 @@ const bcrypt = require("bcryptjs");
 // ==========================================
 router.get("/", async (req, res) => {
   try {
-    // Chỉ lấy những thông tin cần thiết để hiển thị danh sách (bỏ password)
-    const [rows] = await db.execute(
-      "SELECT id, name, email, role, team_id, image_url, is_hr FROM users"
-    );
+    const [rows] = await db.execute("SELECT * FROM users");
     res.json(rows);
   } catch (err) {
     console.error(err.message);
@@ -21,7 +18,7 @@ router.get("/", async (req, res) => {
 });
 
 // ==========================================
-// 2. LẤY CHI TIẾT 1 NHÂN VIÊN (MỚI THÊM)
+// 2. LẤY CHI TIẾT 1 NHÂN VIÊN
 // GET /api/user/:id
 // ==========================================
 router.get("/:id", async (req, res) => {
@@ -34,7 +31,6 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ msg: "Không tìm thấy nhân viên" });
     }
 
-    // Loại bỏ password trước khi trả về để bảo mật
     const { password, ...user } = rows[0];
     res.json(user);
   } catch (err) {
@@ -44,58 +40,63 @@ router.get("/:id", async (req, res) => {
 });
 
 // ==========================================
-// 3. THÊM NHÂN VIÊN MỚI
+// 3. THÊM NHÂN VIÊN MỚI (Logic của bạn)
 // POST /api/user
 // ==========================================
 router.post("/", async (req, res) => {
-  const { id, name, email, password, role, team, is_hr, work_start, work_end } =
-    req.body;
+  // Nhận đầy đủ các trường dữ liệu như code của bạn
+  const { id, name, email, password, role, team, is_hr, work_start, work_end } = req.body;
 
-  // Validate dữ liệu cơ bản
-  if (!id || !email || !password || !name) {
+  // 1. Validate dữ liệu cơ bản
+  if (!id || !password || !name) {
     return res
       .status(400)
-      .json({ msg: "Vui lòng nhập đầy đủ thông tin bắt buộc." });
+      .json({ msg: "Vui lòng nhập đầy đủ thông tin (ID, Tên, Mật khẩu)." });
   }
 
   try {
-    // Kiểm tra xem nhân viên đã tồn tại chưa
+    // 2. [QUAN TRỌNG] Kiểm tra xem ID hoặc Email đã có trong DB chưa?
     const [existingUser] = await db.execute(
-      "SELECT * FROM users WHERE email = ? OR id = ?",
-      [email, id]
+      "SELECT * FROM users WHERE id = ? OR email = ?",
+      [id, email]
     );
+
     if (existingUser.length > 0) {
-      return res
-        .status(400)
-        .json({ msg: "Nhân viên (Email hoặc ID) đã tồn tại." });
+      // Logic báo lỗi cụ thể
+      const isIdDup = existingUser.some((u) => u.id === id);
+      const msg = isIdDup
+        ? `Mã nhân viên '${id}' đã tồn tại!`
+        : `Email '${email}' đã được sử dụng!`;
+
+      return res.status(400).json({ msg: msg });
     }
 
-    // Mã hóa mật khẩu
+    // 3. Mã hóa mật khẩu
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Chèn vào Database
+    // 4. Lưu vào Database (Đầy đủ trường)
     await db.execute(
       `INSERT INTO users (id, name, email, password, role, team_id, is_hr, work_start, work_end, image_url) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         name,
-        email,
+        email, // Sử dụng email từ form gửi lên
         hashedPassword,
         role,
-        team || "dev", // Mặc định team dev nếu không chọn
-        is_hr ? 1 : 0, // Chuyển boolean sang 1/0
+        team || "dev",
+        is_hr ? 1 : 0,
         work_start || "08:00",
         work_end || "17:00",
-        "/placeholder-user.jpg", // Ảnh mặc định
+        "/placeholder-user.jpg",
       ]
     );
 
     res.status(201).json({ msg: "Thêm nhân viên thành công!" });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Lỗi Server");
+    console.error("Lỗi thêm nhân viên:", err.message);
+    res.status(500).send("Lỗi Server: " + err.message);
   }
 });
 
