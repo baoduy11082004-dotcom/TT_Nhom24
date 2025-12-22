@@ -74,7 +74,7 @@ export default function TimekeepingPage() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newTime: newTime }), 
+          body: JSON.stringify({ newTime: newTime }),
         }
       );
 
@@ -117,7 +117,7 @@ export default function TimekeepingPage() {
                 <TableHead>Nhân viên</TableHead>
                 <TableHead>Ngày</TableHead>
                 <TableHead>Giờ vào</TableHead>
-                <TableHead>Giờ ra</TableHead> {/* --- CỘT MỚI --- */}
+                <TableHead>Giờ ra</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead className="text-right">Hành động</TableHead>
               </TableRow>
@@ -125,13 +125,19 @@ export default function TimekeepingPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-8 text-gray-500"
+                  >
                     Đang tải dữ liệu...
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-8 text-gray-500"
+                  >
                     Chưa có dữ liệu chấm công.
                   </TableCell>
                 </TableRow>
@@ -142,22 +148,30 @@ export default function TimekeepingPage() {
                       <div className="flex items-center gap-3">
                         {/* Nếu có avatar thì hiển thị, không thì dùng placeholder */}
                         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                           {record.image_url ? (
-                             <img src={record.image_url} alt="" className="w-full h-full object-cover"/>
-                           ) : (
-                             <span className="text-xs font-bold text-gray-500">{record.employee_name?.charAt(0)}</span>
-                           )}
+                          {record.image_url ? (
+                            <img
+                              src={record.image_url}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs font-bold text-gray-500">
+                              {record.employee_name?.charAt(0)}
+                            </span>
+                          )}
                         </div>
                         <div>
-                            <div>{record.employee_name}</div>
-                            <div className="text-xs text-gray-500">{record.user_id}</div>
+                          <div>{record.employee_name}</div>
+                          <div className="text-xs text-gray-500">
+                            {record.user_id}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       {new Date(record.date).toLocaleDateString("vi-VN")}
                     </TableCell>
-                    
+
                     {/* --- CỘT GIỜ VÀO --- */}
                     <TableCell className="font-bold text-blue-600">
                       {record.check_in_time}
@@ -165,8 +179,12 @@ export default function TimekeepingPage() {
 
                     {/* --- CỘT GIỜ RA (MỚI) --- */}
                     <TableCell className="font-bold text-orange-600">
-                      {record.check_out_time ? record.check_out_time : (
-                        <span className="text-gray-300 font-normal italic">--:--</span>
+                      {record.check_out_time ? (
+                        record.check_out_time
+                      ) : (
+                        <span className="text-gray-300 font-normal italic">
+                          --:--
+                        </span>
                       )}
                     </TableCell>
 
@@ -206,7 +224,12 @@ export default function TimekeepingPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Nhân viên: <span className="font-bold">{selectedRecord?.employee_name}</span></Label>
+              <Label>
+                Nhân viên:{" "}
+                <span className="font-bold">
+                  {selectedRecord?.employee_name}
+                </span>
+              </Label>
             </div>
             <div className="space-y-2">
               <Label htmlFor="time">Thời gian Check-in mới</Label>
@@ -218,7 +241,8 @@ export default function TimekeepingPage() {
                 onChange={(e) => setNewTime(e.target.value)}
               />
               <p className="text-sm text-gray-500">
-                Lưu ý: Hệ thống sẽ tự động tính lại trạng thái (Đúng giờ/Trễ) dựa trên giờ mới.
+                Lưu ý: Hệ thống sẽ tự động tính lại trạng thái (Đúng giờ/Trễ)
+                dựa trên giờ mới.
               </p>
             </div>
           </div>

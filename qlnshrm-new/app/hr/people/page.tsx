@@ -1,16 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  MoreHorizontal,
-  Plus,
-  Search,
-  UserPlus,
-  Mail,
-  Phone,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { useRouter } from "next/navigation"; // 1. Import Router
+import { MoreHorizontal, Search, Mail, Pencil, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,19 +31,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AddEmployeeDialog } from "@/components/add-employee-dialog";
-// Import component sửa vừa tạo
-import { EditEmployeeDialog } from "@/components/edit-employee-dialog"; 
+import { EditEmployeeDialog } from "@/components/edit-employee-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HRPeoplePage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter(); // 2. Khai báo router
   const { toast } = useToast();
 
-  // State để lưu nhân viên đang được sửa (Nếu null là không sửa ai cả)
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
 
-  // Hàm lấy danh sách nhân viên
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -75,7 +65,6 @@ export default function HRPeoplePage() {
     fetchUsers();
   }, []);
 
-  // Hàm xóa nhân viên
   const handleDelete = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) return;
 
@@ -84,9 +73,9 @@ export default function HRPeoplePage() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete");
-      
+
       toast({ title: "Đã xóa nhân viên" });
-      fetchUsers(); // Load lại danh sách
+      fetchUsers();
     } catch (error) {
       toast({
         title: "Lỗi",
@@ -105,8 +94,6 @@ export default function HRPeoplePage() {
             Quản lý danh sách nhân viên và thông tin chi tiết.
           </p>
         </div>
-        
-        {/* Component Thêm mới */}
         <AddEmployeeDialog onSuccess={fetchUsers} />
       </div>
 
@@ -143,7 +130,12 @@ export default function HRPeoplePage() {
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow
+                    key={user.id}
+                    // 3. THÊM LẠI SỰ KIỆN CLICK VÀO DÒNG ĐỂ CHUYỂN TRANG
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => router.push(`/hr/people/${user.id}`)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
@@ -163,43 +155,67 @@ export default function HRPeoplePage() {
                     <TableCell>{user.role}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">
-                        {/* Hiển thị tên phòng ban đẹp hơn thay vì mã */}
-                        {user.team_id === 'dev' ? 'Phát triển' : 
-                         user.team_id === 'design' ? 'Thiết kế' : 
-                         user.team_id === 'hr' ? 'Nhân sự' : 
-                         user.team_id === 'qa' ? 'Kiểm thử' : user.team_id}
+                        {user.team_id === "dev"
+                          ? "Phát triển"
+                          : user.team_id === "design"
+                          ? "Thiết kế"
+                          : user.team_id === "hr"
+                          ? "Nhân sự"
+                          : user.team_id === "qa"
+                          ? "Kiểm thử"
+                          : user.team_id}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Badge
+                        variant="outline"
+                        className="bg-green-50 text-green-700 border-green-200"
+                      >
                         Đang làm việc
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          {/* 4. QUAN TRỌNG: stopPropagation để bấm vào menu không bị nhảy trang */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Menu</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation(); // Chặn nhảy trang
+                              navigator.clipboard.writeText(user.email);
+                            }}
+                          >
                             <Mail className="mr-2 h-4 w-4" />
                             Copy Email
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          
-                          {/* Nút Sửa: Gọi hàm setEditingEmployee */}
-                          <DropdownMenuItem onClick={() => setEditingEmployee(user)}>
+
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation(); // Chặn nhảy trang
+                              setEditingEmployee(user);
+                            }}
+                          >
                             <Pencil className="mr-2 h-4 w-4" />
                             Sửa thông tin
                           </DropdownMenuItem>
-                          
-                          <DropdownMenuItem 
+
+                          <DropdownMenuItem
                             className="text-red-600"
-                            onClick={() => handleDelete(user.id)}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Chặn nhảy trang
+                              handleDelete(user.id);
+                            }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Xóa nhân viên
@@ -215,16 +231,14 @@ export default function HRPeoplePage() {
         </CardContent>
       </Card>
 
-      {/* COMPONENT DIALOG SỬA NHÂN VIÊN */}
-      {/* Nó sẽ chỉ hiện khi editingEmployee khác null */}
-      <EditEmployeeDialog 
-        open={!!editingEmployee} 
+      <EditEmployeeDialog
+        open={!!editingEmployee}
         onOpenChange={(open) => {
-          if (!open) setEditingEmployee(null); // Đóng thì reset về null
+          if (!open) setEditingEmployee(null);
         }}
         employee={editingEmployee}
         onSuccess={() => {
-          fetchUsers(); // Load lại danh sách sau khi sửa xong
+          fetchUsers();
         }}
       />
     </div>
